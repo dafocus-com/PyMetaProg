@@ -1,0 +1,152 @@
+# Copyright 2025-2026 Davide Achilli (DAFOCUS - https://www.dafocus.com)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at:
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Author: Davide Achilli <davide.achilli@dafocus.com>
+
+from .cs_attribute import CsAttributes
+from .cs_class_element import CsClassElement
+from .cs_class_base import CsClassBase
+from .cs_labels import *
+from .cs_type import *
+from .cs_config import CsConfig
+from .cs_rvalue import CsRValueAny, CsRValueContainer
+from metaprog.util.writer import Writer
+from metaprog.util.writable_set import WritableSet, WritableSetAny
+from metaprog.util.extensions import ExtensionsAny
+from metaprog.util.comment import *
+from typing import Union, Callable
+
+# Key to be used in the CppType "extension" dictionary of a CsField or in its CsType
+# to execute custom code to write the field part.
+#
+# Prototype: Callable[[CsField, Writer, CsConfig], None]
+#
+# Example:
+#
+#     def generateCsBody(csField:CsField, writer:Writer, config:CsConfig)->None:
+#          writer.writeRaw("foobar")
+#
+#     myField.m_extensions[CS_FIELD_CUSTOM_CODE] = generateCsBody
+#
+CS_FIELD_CUSTOM_CODE="cs_field_custom_code"
+
+
+class CsField(CsClassElement):
+    ''' Implements fields and properties '''
+    def __init__(self, 
+            fieldName:str, 
+            fieldType:CsTypeAny, 
+            fieldDefault:CsRValueAny=None,
+            fieldConst:bool=False,    # If set, generates a constexpr
+            visibility:CsVisibility=CsVisibility.PUBLIC, 
+            brief:CommentAny=None,
+            csUsings:CsUsingsAny = None,
+            extensions:ExtensionsAny = None,
+            propertySet:Union[bool,WritableSetAny] = None, # Specify `True` for `get;` or a writable for `get{...}`
+            propertyGet:Union[bool,WritableSetAny] = None, # Specify `True` for `set;` or a writable for `set{...}`
+        ):
+        super().__init__(visibility=visibility, csUsings=csUsings, extensions=extensions, brief=brief)
+        self.m_fieldName:str = fieldName
+        self.m_fieldType:CsType = CsTypeFactory(fieldType)
+        self.m_fieldConst:bool = fieldConst
+        self.m_fieldDefault:CsRValueContainer = CsRValueContainer(csValueAny=fieldDefault)
+        self.m_propertySet:Union[bool,WritableSetAny] = propertySet
+        self.m_propertyGet:Union[bool,WritableSetAny] = propertyGet
+        self.m_attributesField = CsAttributes()
+
+    def setupModuleConfig(self, moduleConfig:CsModuleConfig)->None:
+        '''! Operate on the accessible parts of the module to add includes, header parts and so on '''
+        super().setupModuleConfig(moduleConfig=moduleConfig)
+        self.m_fieldType.setupModuleConfig(moduleConfig=moduleConfig)
+
+    def isProperty(self)->bool:
+        '''! Returns true if the item is a property (i.e. with get or set)
+            or `False` if a field
+        '''
+        return self.m_propertySet is not None or self.m_propertyGet is not None
+
+    def generateCsBody(self, writer:Writer, config:CsConfig)->None:
+        self.m_comment.write(writer, config)
+        self.m_attributesField.write(writer, config)
+
+        customCode:Optional[Callable[[CsField, Writer, CsConfig], None]] = self.m_extensions.getValueOrNone(key=CS_FIELD_CUSTOM_CODE)
+        if customCode is None:
+            customCode = self.m_fieldType.m_extensions.getValueOrNone(key=CS_FIELD_CUSTOM_CODE)
+        
+        if customCode is not None:
+            customCode(self, writer, config)
+            return
+
+        writer.writeRaw(self.m_visibility.toStr()+" ")
+        if self.m_fieldConst:
+            writer.writeRaw('const ')
+            assert(self.m_fieldDefault is not None)
+
+        assert(isinstance(self.m_owningScope, CsClassBase))
+        self.m_fieldType.declVar(writer=writer, config=config, var=self.m_fieldName, containerClass=self.m_owningScope, isRef=False)
+
+        if self.m_propertySet is not None or self.m_propertyGet is not None:
+            self._generateGetSet(writer=writer, config=config)
+            hasCustomGetSet:bool = not isinstance(self.m_propertySet, bool) or not isinstance(self.m_propertyGet, bool)
+            hasGetSet:bool = True
+        else:
+            hasGetSet:bool = False
+            hasCustomGetSet:bool = False
+
+        if not self.m_fieldDefault.empty():
+            writer.writeRaw(' = ')
+            self.m_fieldDefault.write(writer, config)
+            writer.writeRaw(";")
+        elif not hasCustomGetSet and self.m_fieldType.getAssigneableDefaultValue(containerClass=self.getCsClass()) is not None:
+            writer.writeRaw(f' = {self.m_fieldType.getAssigneableDefaultValue(containerClass=self.getCsClass())};')
+        elif not hasGetSet:
+            writer.writeRaw(";")
+        writer.writeRaw('\n')
+
+    def identify(self)->str:
+        qualifiedName:str = ""
+        if self.m_owningScope is not None:
+            qualifiedName = self.m_owningScope.getCsQualifiedName() + "."
+        qualifiedName += self.m_fieldName
+        return qualifiedName
+
+    def _generateGetSet(self, writer:Writer, config:CsConfig)->bool:
+        multiLine:bool = (isinstance(self.m_propertyGet, WritableSet) or isinstance(self.m_propertySet, WritableSet))
+        
+        if multiLine:
+            writer.writeNL(" {")
+            writer.incIndent()
+            self._WriteGetSet(writer=writer, config=config, text="get", data=self.m_propertyGet)
+            writer.writeNL("")
+            self._WriteGetSet(writer=writer, config=config, text="set", data=self.m_propertySet)
+            writer.writeNL("")
+            writer.decIndent()
+            writer.write("}")
+        else:
+            writer.writeRaw("{")
+            self._WriteGetSet(writer=writer, config=config, text="get", data=self.m_propertyGet)
+            if self.m_propertyGet is not None and self.m_propertySet is not None: writer.writeRaw(" ")
+            self._WriteGetSet(writer=writer, config=config, text="set", data=self.m_propertySet)
+            writer.writeRaw("}")
+        return multiLine
+
+    def _WriteGetSet(self, writer:Writer, config:CsConfig, text:str, data:Union[bool,WritableSetAny])->None:
+        if isinstance(data, bool) and data == True:
+            writer.write(f'{text};')
+        elif data is not None and isinstance(data, WritableSet):
+            writer.writeNL(f'{text} {{')
+            writer.incIndent()
+            data.write(writer=writer, config=config)
+            writer.decIndent()
+            writer.writeNL('}')

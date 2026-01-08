@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PyMetaProg"
+version = "1.0.0"
+description = "Python based programmable code generator for multiple languages"
+readme = "README.md"
+requires-python = ">=3.13"
+authors = [{ name = "Davide Achilli" }]
+license = { text = "Apache 2.0" }
+
+[project.urls]
+Homepage = "https://github.com/dafocus-com/PyMetaProg"
+
+[tool.setuptools.packages.find]
+where = ["src"]

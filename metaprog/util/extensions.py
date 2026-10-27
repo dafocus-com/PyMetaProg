@@ -27,7 +27,7 @@ class Extensions(ExtensionsBase):
         self.m_keyValues:dict[str,Any] = dict()
         self.merge(extensions=extensions)
     
-    def merge(self, extensions:ExtensionsAny)->None:
+    def merge(self, extensions:ExtensionsAny) -> None:
         if extensions is None: return
         elif isinstance(extensions, dict):
             for key in extensions.keys():
@@ -59,7 +59,7 @@ class Extensions(ExtensionsBase):
     def __getitem__(self, key:str)->Any:
         return self.m_keyValues[key]
     
-    def __setitem__(self, key:str, value:Any)->None:
+    def __setitem__(self, key:str, value:Any) -> None:
         self.m_keyValues[key] = value
 
     def __contains__(self, key:str)->bool:
@@ -68,5 +68,5 @@ class Extensions(ExtensionsBase):
     def __len__(self, key:str)->int:
         return len(self.m_keyValues)
     
-    def __delitem__(self, key:str)->None:
+    def __delitem__(self, key:str) -> None:
         del self.m_keyValues[key]

@@ -14,10 +14,10 @@
 #
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
-from typing import Optional
-from metaprog.util.writable import *
-from metaprog.util.writable_set import *
 from .cs_config import CsConfig
+from metaprog.util.writable_set import WritableSet, WritableSetAny
+from metaprog.util.writer import Writer
+from typing import Optional
 
 class CsAttribute:
     '''! 
@@ -25,12 +25,12 @@ class CsAttribute:
         of `[KeyValue]` or `[KeyValue = value]` that can preceed classes, properties,
         fields and methods.
     '''
-    def __init__(self, attribKey:str, attribValue:WritableSetAny=None):
+    def __init__(self, attribKey:str, attribValue:WritableSetAny=None) -> None:
         self.m_attribKey:str = attribKey
         self.m_attribValue:Optional[WritableSet] = None
         if attribValue is not None: self.m_attribValue = WritableSet(text=attribValue)
 
-    def write(self, writer:Writer, config:CsConfig):
+    def write(self, writer:Writer, config:CsConfig) -> None:
         writer.writeRaw(f"[{self.m_attribKey}")
         if self.m_attribValue is not None:
             writer.writeRaw(" = ")
@@ -39,13 +39,13 @@ class CsAttribute:
 
 
 class CsAttributes:
-    def __init__(self, attributesList:list[CsAttribute]=list()):
+    def __init__(self, attributesList:list[CsAttribute]=list()) -> None:
         self.m_attributesList:list[CsAttribute] = list()
         self.m_attributesList += attributesList
 
-    def write(self, writer:Writer, config:CsConfig):
+    def write(self, writer:Writer, config:CsConfig) -> None:
         for csAttribute in self.m_attributesList:
             csAttribute.write(writer=writer, config=config)
     
-    def append(self, csAttribute:CsAttribute):
+    def append(self, csAttribute:CsAttribute) -> None:
         self.m_attributesList.append(csAttribute)

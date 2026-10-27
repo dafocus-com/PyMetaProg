@@ -19,7 +19,7 @@ from .cs_namescope import CsNameScope
 from .cs_module_config import CsModuleConfig
 from metaprog.util.writer import Writer
 from .cs_config import CsConfig
-from .cs_usings import CsUsingsAny
+from .cs_includes import CsIncludesAny
 from metaprog.util.extensions import ExtensionsAny
 
 class CsNameScopeWithChildren(CsNameScope):
@@ -27,23 +27,22 @@ class CsNameScopeWithChildren(CsNameScope):
     def __init__(
             self, 
             nameScope:str,
-            hppUsings:CsUsingsAny=None,
-            csUsings:CsUsingsAny=None,
+            csIncludes:CsIncludesAny=None,
             extensions:ExtensionsAny=None,
         ) -> None:
-        super().__init__(nameScope=nameScope, csUsings=csUsings, extensions=extensions)
+        super().__init__(nameScope=nameScope, csIncludes=csIncludes, extensions=extensions)
         self.m_children:list[CsNameScope] = list()
 
-    def addChild(self, child:CsNameScope)->None:
+    def addChild(self, child:CsNameScope) -> None:
         assert(child.m_parent is None)
         child.m_parent = self
         self.m_children.append(child)
 
-    def setupModuleConfig(self, moduleConfig:CsModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CsModuleConfig) -> None:
         super().setupModuleConfig(moduleConfig=moduleConfig)
         for child in self.m_children:
             child.setupModuleConfig(moduleConfig=moduleConfig)
 
-    def generateCsBody(self, writer:Writer, config:CsConfig)->None:
+    def generateCsBody(self, writer:Writer, config:CsConfig) -> None:
         for child in self.m_children:
             child.generateCsBody(writer=writer, config=config)

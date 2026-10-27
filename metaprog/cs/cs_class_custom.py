@@ -15,11 +15,11 @@
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
 from .cs_class_element import CsClassElement
-from .cs_labels import *
+from .cs_labels import CsVisibility
 from .cs_config import CsConfig
-from .cs_usings import CsUsingsAny
+from .cs_includes import CsIncludesAny
 from metaprog.util.extensions import ExtensionsAny
-from metaprog.util.comment import *
+from metaprog.util.comment import Comment, CommentAny
 from metaprog.util.writable_set import WritableSet, WritableSetAny
 from metaprog.util.writer import Writer
 
@@ -35,10 +35,10 @@ class CsClassCustom(CsClassElement):
             visibility:CsVisibility=CsVisibility.PRIVATE, 
             brief:CommentAny=None,
             extensions:ExtensionsAny = None,
-            csUsings:CsUsingsAny = None,
+            csIncludes:CsIncludesAny = None,
             writableInClass:WritableSetAny = None,
         ):
-        super().__init__(visibility=visibility, csUsings=csUsings, extensions=extensions)
+        super().__init__(visibility=visibility, csIncludes=csIncludes, extensions=extensions)
         self.m_desc:str = desc
         self.m_comment:Comment = Comment(commentAny=brief)
         self.m_writableInClass:WritableSet = WritableSet(text=writableInClass)
@@ -47,7 +47,7 @@ class CsClassCustom(CsClassElement):
         '''! Returns a string that can be used to identify this element in logs '''
         return self.m_desc
 
-    def generateCsBody(self, writer:Writer, config:CsConfig)->None:
-        '''! Generate the body part of the C++ .hpp file, i.e. where the class definitions go '''
+    def generateCsBody(self, writer:Writer, config:CsConfig) -> None:
+        '''! Generate the body part of the C# .cs file, i.e. where the class definitions go '''
         self.m_comment.write(writer, config)
         self.m_writableInClass.write(writer=writer, config=config)

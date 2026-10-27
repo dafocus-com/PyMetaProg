@@ -74,42 +74,46 @@ ENUMS:
   converted to U32 values and calculated
     
 '''
+from .cpp_generator_base import CppGeneratorBase
 from metaprog.cpp.cpp_class import CppClass
+from metaprog.cpp.cpp_enum_base import CppEnumBase
 from metaprog.cpp.cpp_field import CppField
-from metaprog.cpp.cpp_method import *
-from metaprog.cpp.cpp_labels import *
-from metaprog.util.log import *
-from metaprog.util.config import *
-from .cpp_generator_base import *
+from metaprog.cpp.cpp_labels import CppVisibility, CppClassVirtuality, CppInline, CppStaticity, CppVirtuality
+from metaprog.cpp.cpp_method import CppMethod
+from metaprog.cpp.cpp_param import CppParam
+from metaprog.cpp.cpp_type import CppType, CppTypeMap, CppTypeVector, CppTypeBinary, CppTypeString, CppTypeSharedPtr, CppTypeClass
+from metaprog.util.config import env
+from metaprog.util.log import logError
+from metaprog.util.writable_set import assertIsWritableSetAny, WritableSet
 
-CPP_HASH_GENERATED :str  = "hash_generated" # -> bool, created and written by this module to mark that has been processed
 CPP_HASH_CLASS_NAME:str  = "cpp_hash_name"  # -> Alternate name used by this class to calculate the string used for hashing
 
-CPP_HASH_CODE="cpp_hash_code"
+CPP_HASH_CODE:str = "cpp_hash_code"
 '''
 HOW TO USE `CPP_HASH_CODE`:
 
     CppField(
         # ...
         extensions={
-            CPP_HASH_CODE:WritableSet(f'{HASH_OBJ}.add({HASH_FIELD});'),
+            CPP_HASH_CODE:WritableSet(f'{CPP_HASH_OBJ}.add({CPP_HASH_FIELD});'),
         },
         # ...
     ))
 
 Note: it can be placed in the `CppField` or the `CppType` object.
-It can be placed in the `CppClass` object as well: in that case {HASH_FIELD} is not used.
+It can be placed in the `CppClass` object as well: in that case {CPP_HASH_FIELD} is not used.
     
 '''
 
-CPP_HASH_FIELD_DISABLE="cpp_hash_field_disable" # Add to disable hash of the CppField
+CPP_HASH_FIELD_DISABLE:str ="cpp_hash_field_disable" # Add to disable hash of the CppField
+CPP_HASH_GENERATED:str     = "cpp_hash_generated" # -> bool, created and written by this module to mark that has been processed
 
 
-_HASH_OBJ="HASH_OBJ"
-_HASH_FIELD="HASH_FIELD"
+_CPP_HASH_OBJ="CPP_HASH_OBJ"
+_CPP_HASH_FIELD="CPP_HASH_FIELD"
 
-HASH_OBJ=env(_HASH_OBJ)
-HASH_FIELD=env(_HASH_FIELD)
+CPP_HASH_OBJ=env(_CPP_HASH_OBJ)
+CPP_HASH_FIELD=env(_CPP_HASH_FIELD)
 
 _CPP_HASH_OBJ_BEG   :str = "@OBJ_BEG@"
 _CPP_HASH_OBJ_END   :str = "@OBJ_END@"
@@ -193,9 +197,9 @@ class CppHashGenerator(CppGeneratorBase):
         if isVirtual and self._baseClassHasHash(cppClass=cppClass):
             methodVirtuality:CppVirtuality = CppVirtuality.VIRTUAL_OVERRIDE
         elif isVirtual:
-            methodVirtuality:CppVirtuality = CppVirtuality.VIRTUAL
+            methodVirtuality = CppVirtuality.VIRTUAL
         else:
-            methodVirtuality:CppVirtuality = CppVirtuality.NORMAL
+            methodVirtuality = CppVirtuality.NORMAL
 
         hash:CppMethod = CppMethod(
             methodName=self.m_calcHashName,
@@ -213,7 +217,8 @@ class CppHashGenerator(CppGeneratorBase):
             #------------------------------------------------------
             # CUSTOM HASH CODE
             #------------------------------------------------------
-            hash.m_code.pushEnv(env={_HASH_OBJ:self.m_hashParam})
+            assertIsWritableSetAny(cppClass.m_extensions[CPP_HASH_CODE])
+            hash.m_code.pushEnv(env={_CPP_HASH_OBJ:self.m_hashParam})
             hash.m_code.append(cppClass.m_extensions[CPP_HASH_CODE])
             hash.m_code.popEnv()
         else:
@@ -229,14 +234,15 @@ class CppHashGenerator(CppGeneratorBase):
             self._hashTag(writableSet=hash.m_code, tag=_CPP_HASH_OBJ_END)
 
     #=============================================================================================
-    def _hashTag(self, writableSet:WritableSet, tag:str):
+    def _hashTag(self, writableSet:WritableSet, tag:str) -> None:
         writableSet.append(f'{self.m_hashParam}.add("{tag}");')
 
     #=============================================================================================
     def _hashCode(self, writableSet:WritableSet, fieldType:CppType, fieldExpr:str) -> None:
         if CPP_HASH_CODE in fieldType.m_extensions:
-            assert(isinstance(fieldType.m_extensions[CPP_HASH_CODE],WritableSet))
-            writableSet.pushEnv(env={_HASH_OBJ:self.m_hashParam, _HASH_FIELD:fieldExpr})
+            print(f"DEBUG FOUND fieldExpr={fieldExpr}")
+            assertIsWritableSetAny(fieldType.m_extensions[CPP_HASH_CODE])
+            writableSet.pushEnv(env={_CPP_HASH_OBJ:self.m_hashParam, _CPP_HASH_FIELD:fieldExpr})
             writableSet.append(fieldType.m_extensions[CPP_HASH_CODE])
             writableSet.popEnv()
         elif isinstance(fieldType, CppTypeMap):

@@ -19,14 +19,18 @@
 Generates two methods that allow encoding and decoding from/to a std::string in JSON.
 Requires the `cpp_marshal_generator` to be executed as well.
 '''
-from .cpp_generator_base import *
-from .cpp_marshal_generator import *
-from metaprog.cpp.cpp_method import *
-from metaprog.cpp.cpp_param import *
-from metaprog.util.log import *
+from .cpp_generator_base import CppGeneratorBase
+from .cpp_marshal_generator import CPP_MARSHAL_CLASS_GENERATED, CPP_MARSHAL_METHOD_ENCODE, CPP_MARSHAL_METHOD_DECODE, CPP_MARSHAL_METHOD_POLYMORPHIC_DECODE, CPP_MARSHAL_METHOD_POLYMORPHIC_ENCODE, CppMarshalGenerator
+from metaprog.cpp.cpp_class import CppClass
+from metaprog.cpp.cpp_labels import CppVirtuality, CppStaticity, CppInline, CppVisibility
+from metaprog.cpp.cpp_method import CppMethod
+from metaprog.cpp.cpp_param import CppParam
+from metaprog.cpp.cpp_type import CppTypeString, CppTypeSharedPtr, CppTypeClass
+from metaprog.util.comment_entry import CommentEntry
+from metaprog.util.log import logError
 
 # Key to be used in the CppClass "extension" dictionary to enable or disable the generation of the class
-CPP_MARSHAL_FAST_JSON_CLASS_GENERATED="cpp_marshal_fast_json_generated" # -> bool, created and written by this module to mark that has been processed
+CPP_MARSHAL_FAST_JSON_CLASS_GENERATED:str = "cpp_marshal_fast_json_generated" # -> bool, created and written by this module to mark that has been processed
 
 
 class CppMarshalFastJsonGenerator(CppGeneratorBase):
@@ -35,16 +39,20 @@ class CppMarshalFastJsonGenerator(CppGeneratorBase):
             self, 
             jsonEncodeName:str = "json_encode",
             jsonDecodeName:str = "json_decode",
+            jsonPolymorphicEncodeName:str = "json_polymorphic_encode",
+            jsonPolymorphicDecodeName:str = "json_polymorphic_decode",
         ) -> None:
         super().__init__()
         self.m_jsonEncodeName:str = jsonEncodeName
         self.m_jsonDecodeName:str = jsonDecodeName
+        self.m_jsonPolymorphicEncodeName:str = jsonPolymorphicEncodeName
+        self.m_jsonPolymorphicDecodeName:str = jsonPolymorphicDecodeName
 
     #=============================================================================================
     def decorateClasses(self) -> None:
         '''! Executes the decoration of the classes before generating the code '''
         for cppClass in self.m_cppClasses:
-            self.__decorateClass(cppClass)
+            self.__decorateClass(cppClass=cppClass)
 
 
     #=============================================================================================
@@ -59,6 +67,8 @@ class CppMarshalFastJsonGenerator(CppGeneratorBase):
         cppClass.m_extensions[CPP_MARSHAL_FAST_JSON_CLASS_GENERATED] = True
         self.__addEncode(cppClass=cppClass)
         self.__addDecode(cppClass=cppClass)
+        self.__addPolymorphicEncode(cppClass=cppClass)
+        self.__addPolymorphicDecode(cppClass=cppClass)
 
 
     #=============================================================================================
@@ -82,7 +92,7 @@ class CppMarshalFastJsonGenerator(CppGeneratorBase):
                 ),
                 CppParam(
                     paramName='typed_field',
-                    paramType=CppTypeString(isRef=True, isConst=True),
+                    paramType=CppTypeString(isRef=True, isConst=True, isConstexpr=True),
                     paramComment='Name of the field in case of `TYPEID_AS_STRUCT_FIELD`; see @ref dastd::marshal_json_polymorphic_encoding',
                     paramDefault='"$type"',
                 ),
@@ -125,14 +135,100 @@ class CppMarshalFastJsonGenerator(CppGeneratorBase):
                 ),
                 CppParam(
                     paramName='typed_field',
-                    paramType=CppTypeString(isRef=True, isConst=True),
+                    paramType=CppTypeString(isRef=True, isConst=True, isConstexpr=True),
                     paramComment='Name of the field in case of `TYPEID_AS_STRUCT_FIELD`; see @ref dastd::marshal_json_polymorphic_encoding',
                     paramDefault='"$type"',
                 ),
             ],
             code=f'''\
-                dastd::source_membuf<char> source(json_string);
+                dastd::source_membuf<char> source_stream(json_string);
+                dastd::json_tokenizer_source<char> source(source_stream);
                 dastd::marshal_dec_json dec(source, polymorphic_encoding, typed_field);
                 {cppClass.m_extensions[CPP_MARSHAL_METHOD_DECODE]}(dec);
             '''
         ))
+
+
+    #=============================================================================================
+    def __addPolymorphicEncode(self, cppClass:CppClass) -> None:
+        if CppMarshalGenerator.baseClassHasStreaming(cppClass): return
+
+        #-----------------------------------------------------------------------------
+        # POLYMORHPIC ENCODE - Method declaration
+        #-----------------------------------------------------------------------------
+        cppClass.addClassElement(
+            CppMethod(
+                methodName=self.m_jsonPolymorphicEncodeName,
+                returnType=CppTypeString(),
+                visibility=CppVisibility.PUBLIC,
+                brief='Encode this object as a JSON string adding the type attribute',
+                inline=CppInline.INLINE_OUTSIDE,
+                virtuality=CppVirtuality.NORMAL,
+                staticity=CppStaticity.DYNAMIC_CONST,
+                
+                params=[
+                    CppParam(
+                        paramName='polymorphic_encoding',
+                        paramType='dastd::marshal_json_polymorphic_encoding',
+                        paramComment='See @ref dastd::marshal_json_polymorphic_encoding',
+                        paramDefault='dastd::marshal_json_polymorphic_encoding::TYPEID_AS_FIELD_NAME',
+                    ),
+                    CppParam(
+                        paramName='typed_field',
+                        paramType=CppTypeString(isRef=True, isConst=True, isConstexpr=True),
+                        paramComment='Name of the field in case of `TYPEID_AS_STRUCT_FIELD`; see @ref dastd::marshal_json_polymorphic_encoding',
+                        paramDefault='"$type"',
+                    ),
+                ],
+                code=f'''\
+                    std::ostringstream str;
+                    dastd::marshal_enc_json enc(str, polymorphic_encoding, typed_field);
+                    {cppClass.m_extensions[CPP_MARSHAL_METHOD_POLYMORPHIC_ENCODE]}(enc);
+                    return str.str();
+                '''
+            )
+        )
+
+
+    #=============================================================================================
+    def __addPolymorphicDecode(self, cppClass:CppClass) -> None:
+        if CppMarshalGenerator.baseClassHasStreaming(cppClass): return
+
+        #-----------------------------------------------------------------------------
+        # POLYMORHPIC DECODE - Method declaration
+        #-----------------------------------------------------------------------------
+        cppClass.addClassElement(
+            CppMethod(
+                methodName=self.m_jsonPolymorphicDecodeName,
+                returnType=CppTypeSharedPtr(CppTypeClass(cppClass)),
+                inline=CppInline.INLINE_OUTSIDE,
+                staticity=CppStaticity.STATIC,
+                visibility=CppVisibility.PUBLIC,
+                brief='Decode an unknown structure that begins with a `decode_typed_begin`',
+                params=[
+                    CppParam(
+                        paramName='json_string',
+                        paramType=CppTypeString(isRef=True, isConst=True, isConstexpr=True),
+                        paramComment='See @ref dastd::marshal_json_polymorphic_encoding',
+                    ),
+                    CppParam(
+                        paramName='polymorphic_encoding',
+                        paramType='dastd::marshal_json_polymorphic_encoding',
+                        paramComment='See @ref dastd::marshal_json_polymorphic_encoding',
+                        paramDefault='dastd::marshal_json_polymorphic_encoding::TYPEID_AS_FIELD_NAME',
+                    ),
+                    CppParam(
+                        paramName='typed_field',
+                        paramType=CppTypeString(isRef=True, isConst=True, isConstexpr=True),
+                        paramComment='Name of the field in case of `TYPEID_AS_STRUCT_FIELD`; see @ref dastd::marshal_json_polymorphic_encoding',
+                        paramDefault='"$type"',
+                    ),
+                ],
+                code=f'''\
+                    dastd::source_membuf<char> source_stream(json_string);
+                    dastd::json_tokenizer_source<char> source(source_stream);
+                    dastd::marshal_dec_json dec(source, polymorphic_encoding, typed_field);
+                    return {cppClass.m_extensions[CPP_MARSHAL_METHOD_POLYMORPHIC_DECODE]}(dec);
+                '''
+            )
+        )

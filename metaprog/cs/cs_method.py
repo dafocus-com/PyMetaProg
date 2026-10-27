@@ -14,20 +14,22 @@
 #
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
-from .cs_class_element import CsClassElement
+from .cs_attribute import CsAttributes
 from .cs_class_base import CsClassBase
-from .cs_labels import *
-from .cs_param import CsParam
+from .cs_class_element import CsClassElement
+from .cs_config import CsConfig
+from .cs_labels import CsVisibility, CsVirtuality, CsStaticity
 from .cs_module_config import CsModuleConfig
 from .cs_namescope import CsNameScope
-from .cs_config import CsConfig
-from .cs_usings import CsUsingsAny
-from .cs_type import *
-from .cs_attribute import CsAttributes
-from metaprog.util.writer import Writer
-from metaprog.util.writable_set import WritableSet, WritableSetAny
-from metaprog.util.comment import *
+from .cs_param import CsParam
+from .cs_type import CsType, CsTypeFactory, CsTypeAny
+from .cs_includes import CsIncludesAny
+from enum import Enum
+from metaprog.util.comment import Comment, CommentAny
 from metaprog.util.extensions import ExtensionsAny
+from metaprog.util.writable_set import WritableSet, WritableSetAny
+from metaprog.util.writer import Writer
+
 class CsMethodType(Enum):
     NORMAL           = 1
     CONSTRUCTOR      = 2
@@ -48,10 +50,10 @@ class CsMethod(CsClassElement):
             genericeParams:list[str]=list(), # Generic parameters, i.e. the C# templates
             initializers:list[str]=list(), # Constructor initializers
             baseClassInitializers:list[str]=list(), # Base class constructor initializers
-            csUsings:CsUsingsAny = None,
+            csIncludes:CsIncludesAny = None,
             extensions:ExtensionsAny = None,
         ):
-        super().__init__(visibility=visibility, csUsings=csUsings, extensions=extensions)
+        super().__init__(visibility=visibility, csIncludes=csIncludes, extensions=extensions)
         self.m_methodName:str = methodName
         self.m_returnType:CsType = CsTypeFactory(returnType)
         self.m_methodType:CsMethodType = methodType
@@ -70,7 +72,7 @@ class CsMethod(CsClassElement):
         self.m_baseClassInitializers:list[str] = baseClassInitializers
         self.m_attributesMeth = CsAttributes()
 
-    def setupModuleConfig(self, moduleConfig:CsModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CsModuleConfig) -> None:
         '''! Operate on the accessible parts of the module to add usings, header parts and so on '''
         super().setupModuleConfig(moduleConfig=moduleConfig)
         self.m_returnType.setupModuleConfig(moduleConfig=moduleConfig)
@@ -79,7 +81,7 @@ class CsMethod(CsClassElement):
             param.setupModuleConfig(moduleConfig=moduleConfig)
             param.addToComment(self.m_comment)
 
-    def generateCsBody(self, writer:Writer, config:CsConfig)->None:
+    def generateCsBody(self, writer:Writer, config:CsConfig) -> None:
         self.m_comment.write(writer, config)
         self.m_attributesMeth.write(writer, config)
         assert(self.m_methodType != CsMethodType.CONSTRUCTOR or (self.m_virtuality==CsVirtuality.NORMAL and self.m_staticity == CsStaticity.DYNAMIC))
@@ -94,7 +96,7 @@ class CsMethod(CsClassElement):
             writer.writeRaw(f'{self.m_returnType.toString(self.getCsClass())} ')
         self.__proto(writer=writer, config=config, withDefault=True)
 
-        if self.m_virtuality != CsVirtuality.PURE_VIRTUAL:
+        if self.m_virtuality != CsVirtuality.PURE_VIRTUAL):
             self.__writeImpl(writer, config)
         else:
             writer.writeRaw(";\n")

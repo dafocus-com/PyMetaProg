@@ -32,6 +32,8 @@ class CppVirtuality(Enum):
     VIRTUAL          = 2
     PURE_VIRTUAL     = 3
     VIRTUAL_OVERRIDE = 4
+    DELETED          = 5
+
 
 # Keep in numeric order as defined (used internally to promote the class status)
 class CppClassVirtuality(Enum):

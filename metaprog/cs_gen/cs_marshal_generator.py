@@ -19,8 +19,9 @@ from metaprog.cs.cs_class import CsClass
 from metaprog.cs.cs_class_element import CsClassElement
 from metaprog.cs.cs_attribute import CsAttribute
 from metaprog.cs.cs_field import CsField
-from metaprog.util.log import *
-from metaprog.cs.cs_attribute import *
+from metaprog.util.log import logError
+from metaprog.cs.cs_attribute import CsAttribute
+from typing import Optional
 
 # Key to be used in the CsField "extension" dictionary to enable or disable the generation of the attribute
 CS_MARSHAL_FIELD_ENABLE = "cs_marshal_enable"   # -> True or False
@@ -33,7 +34,7 @@ CS_MARSHAL_CLASS_NAME      = "cs_marshal_name"      # -> Alternate name used by 
 CS_MARSHAL_CLASS_FIELDS_COUNT = "cs_marshal_fields_count"
 
 class CsMarshalGenerator(CsGeneratorBase):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
     
     #=============================================================================================
@@ -54,12 +55,12 @@ class CsMarshalGenerator(CsGeneratorBase):
         csClass.m_extensions[CS_MARSHAL_CLASS_FIELDS_COUNT] = count
 
     #=============================================================================================
-    def __setupClassUsings(self, csClass:CsClass) -> None:
-        csClass.m_csUsings.add('System')
-        csClass.m_csUsings.add('System.Text.Json')
-        csClass.m_csUsings.add('System.Text.Json.Serialization')
-        csClass.m_csUsings.add('System.Collections.Generic')
-        csClass.m_csUsings.addDirective('#nullable enable')
+    def __setupClassIncludes(self, csClass:CsClass) -> None:
+        csClass.m_csIncludes.add('System')
+        csClass.m_csIncludes.add('System.Text.Json')
+        csClass.m_csIncludes.add('System.Text.Json.Serialization')
+        csClass.m_csIncludes.add('System.Collections.Generic')
+        csClass.m_csIncludes.addDirective('#nullable enable')
 
     #=============================================================================================
     def __setupPolymorphicClass(self, csClass:CsClass) -> None:
@@ -71,12 +72,12 @@ class CsMarshalGenerator(CsGeneratorBase):
             if len(derivedClasses) > 1:
                 # Generate the derivation attributes
                 for derivedClass in derivedClasses:
-                    self.__setupClassUsings(derivedClass)
+                    self.__setupClassIncludes(derivedClass)
                     if CS_MARSHAL_CLASS_NAME in derivedClass.m_extensions:
                         assert(isinstance(derivedClass.m_extensions[CS_MARSHAL_CLASS_NAME], str))
                         marshalClassName:str = derivedClass.m_extensions[CS_MARSHAL_CLASS_NAME]
                     else:
-                        marshalClassName:str = derivedClass.getCsQualifiedName(csClass)
+                        marshalClassName = derivedClass.getCsQualifiedName(csClass)
                     csClass.m_attributesClass.append(csAttribute=CsAttribute(attribKey=f'JsonDerivedType(typeof({derivedClass.getCsQualifiedName(csClass)}), typeDiscriminator:"{marshalClassName}")'))
 
 
@@ -85,7 +86,7 @@ class CsMarshalGenerator(CsGeneratorBase):
         if CS_MARSHAL_CLASS_GENERATED in csClass.m_extensions:
             logError(f"Class `{csClass.getCsQualifiedName()}` generated more than once")
             return
-        self.__setupClassUsings(csClass)
+        self.__setupClassIncludes(csClass)
         csClass.m_extensions[CS_MARSHAL_CLASS_GENERATED] = True
 
         order:int = self.__getInitialFieldOrder(csClass=csClass)

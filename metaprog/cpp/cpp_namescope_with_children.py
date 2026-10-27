@@ -21,8 +21,9 @@ from metaprog.util.writer import Writer
 from .cpp_config import CppConfig
 from .cpp_includes import CppIncludesAny
 from metaprog.util.extensions import ExtensionsAny
+from .cpp_children_container import CppChildrenContainer
 
-class CppNameScopeWithChildren(CppNameScope):
+class CppNameScopeWithChildren(CppNameScope, CppChildrenContainer):
     '''! Objects that have a name scope like namespaces and classes '''
     def __init__(
             self, 
@@ -34,7 +35,7 @@ class CppNameScopeWithChildren(CppNameScope):
         super().__init__(nameScope=nameScope, hppIncludes=hppIncludes, cppIncludes=cppIncludes, extensions=extensions)
         self.m_children:list[CppNameScope] = list()
 
-    def addChild(self, child:CppNameScope)->None:
+    def addChild(self, child:CppNameScope) -> None:
         assert(child.m_parent is None)
         child.m_parent = self
         self.m_children.append(child)
@@ -49,19 +50,20 @@ class CppNameScopeWithChildren(CppNameScope):
             if child.needsInline(): return True
         return False
 
-    def setupModuleConfig(self, moduleConfig:CppModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CppModuleConfig) -> None:
         super().setupModuleConfig(moduleConfig=moduleConfig)
         for child in self.m_children:
             child.setupModuleConfig(moduleConfig=moduleConfig)
 
-    def generateHppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateHppBody(self, writer:Writer, config:CppConfig) -> None:
+        super().generateHppBody(writer=writer, config=config)
         for child in self.m_children:
             child.generateHppBody(writer=writer, config=config)
 
-    def generateHppInline(self, writer:Writer, config:CppConfig)->None:
+    def generateHppInline(self, writer:Writer, config:CppConfig) -> None:
         for child in self.m_children:
             child.generateHppInline(writer=writer, config=config)
 
-    def generateCppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateCppBody(self, writer:Writer, config:CppConfig) -> None:
         for child in self.m_children:
             child.generateCppBody(writer=writer, config=config)

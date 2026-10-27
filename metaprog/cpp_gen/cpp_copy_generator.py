@@ -19,26 +19,28 @@
 '''
 from metaprog.cpp.cpp_class import CppClass
 from metaprog.cpp.cpp_field import CppField
-from metaprog.cpp.cpp_method import *
-from metaprog.cpp.cpp_labels import *
-from metaprog.util.log import *
-from metaprog.util.config import *
-from metaprog.util.writable_set import WritableSet
-from .cpp_generator_base import *
+from metaprog.cpp.cpp_method import CppMethod, CppMethodType
+from metaprog.cpp.cpp_labels import CppClassVirtuality, CppVirtuality, CppStaticity, CppInline
+from metaprog.cpp.cpp_type import CppType, CppTypeSharedPtr, CppTypeClass, CppTypeSimple, CppTypeString, CppTypeBinary, CppTypeVector, CppTypeMap
+from metaprog.cpp.cpp_param import CppParam
+from metaprog.util.log import logError
+from metaprog.util.config import env
+from metaprog.util.writable_set import WritableSet, assertIsWritableSetAny
+from .cpp_generator_base import CppGeneratorBase
 
-COPY_GENERATED:str="copy_generated" # -> bool, created and written by this module to mark that has been processed
+CPP_COPY_GENERATED:str = "cpp_copy_generated" # -> bool, created and written by this module to mark that has been processed
 
-CPP_COPY_FIELD_DISABLE:str="cpp_copy_field_disable" # Add to disable copy of the CppField
+CPP_COPY_FIELD_DISABLE:str = "cpp_copy_field_disable" # Add to disable copy of the CppField
 
 
-CPP_COPY_FIELD_POST_CODE:str="cpp_copy_field_post_code" # Code added after the copy/cloning of the field is completed
+CPP_COPY_FIELD_POST_CODE:str = "cpp_copy_field_post_code" # Code added after the copy/cloning of the field is completed
 '''
 HOW TO USE `CPP_COPY_FIELD_POST_CODE`:
 
     CppField(
         # ...
         extensions={
-            CPP_COPY_FIELD_POST_CODE:WritableSet(f'{COPY_FIELD_DST}.doExtraStuff();'),
+            CPP_COPY_FIELD_POST_CODE:WritableSet(f'{CPP_COPY_FIELD_DST}.doExtraStuff();'),
         },
         # ...
     ))
@@ -47,11 +49,11 @@ Note: it can be placed in the `CppField` or the `CppType` object.
     
 '''
 
-_COPY_FIELD_DST="COPY_FIELD_DST"
-_COPY_FIELD_SRC="COPY_FIELD_SRC"
+_CPP_COPY_FIELD_DST:str = "CPP_COPY_FIELD_DST"
+_CPP_COPY_FIELD_SRC:str = "CPP_COPY_FIELD_SRC"
 
-COPY_FIELD_DST=env(_COPY_FIELD_DST)
-COPY_FIELD_SRC=env(_COPY_FIELD_SRC)
+CPP_COPY_FIELD_DST=env(_CPP_COPY_FIELD_DST)
+CPP_COPY_FIELD_SRC=env(_CPP_COPY_FIELD_SRC)
 
 class CppCopyGenerator(CppGeneratorBase):
     #=============================================================================================
@@ -81,10 +83,10 @@ class CppCopyGenerator(CppGeneratorBase):
     #=============================================================================================
     def __decorateClass(self, cppClass:CppClass) -> None:
         '''! Decorate the single class with all the required code '''
-        if COPY_GENERATED in cppClass.m_extensions:
+        if CPP_COPY_GENERATED in cppClass.m_extensions:
             logError(f"class `{cppClass.getCppQualifiedName()}` generated more than once")
             return
-        cppClass.m_extensions[COPY_GENERATED] = True
+        cppClass.m_extensions[CPP_COPY_GENERATED] = True
         #logInfo(f"Decorating class `{cppClass.getCppQualifiedName()}` for copy - classVirtuality={cppClass.getClassVirtuality()}")
 
         self.__generateCopyConstructor(cppClass=cppClass)
@@ -110,9 +112,9 @@ class CppCopyGenerator(CppGeneratorBase):
         if isVirtual and hasBaseClass:
             methodVirtuality:CppVirtuality = CppVirtuality.VIRTUAL_OVERRIDE
         elif isVirtual:
-            methodVirtuality:CppVirtuality = CppVirtuality.VIRTUAL
+            methodVirtuality = CppVirtuality.VIRTUAL
         else:
-            methodVirtuality:CppVirtuality = CppVirtuality.NORMAL
+            methodVirtuality = CppVirtuality.NORMAL
 
         cppClass.addClassElement(
             CppMethod(
@@ -181,6 +183,7 @@ class CppCopyGenerator(CppGeneratorBase):
 
         for cppField in cppClass.m_classElements:
             if isinstance(cppField, CppField) and not cppField.m_fieldConst and cppField.m_extensions.getValueOrNone(CPP_COPY_FIELD_DISABLE) is None:
+                #print(f'[DEBUG] FIELD {cppField.m_fieldName}')
                 fieldExprSrc:str = f'{sourceObj}.{cppField.m_fieldName}'
                 fieldExprDst:str = cppField.m_fieldName
                 self.__generateAssignOperatorForField(cppType=cppField.m_fieldType, target=fieldExprDst, source=fieldExprSrc, code=code)
@@ -267,14 +270,14 @@ class CppCopyGenerator(CppGeneratorBase):
         
     #=============================================================================================
     def __printCustomPostCode(self, writableSet:WritableSet, cppField:CppField, fieldExprDst:str, fieldExprSrc:str) -> None:
-        writableSet.pushEnv(env={_COPY_FIELD_SRC:fieldExprSrc, _COPY_FIELD_DST:fieldExprDst})
+        writableSet.pushEnv(env={_CPP_COPY_FIELD_SRC:fieldExprSrc, _CPP_COPY_FIELD_DST:fieldExprDst})
 
         if CPP_COPY_FIELD_POST_CODE in cppField.m_extensions:
-            assert(isinstance(cppField.m_extensions[CPP_COPY_FIELD_POST_CODE],WritableSet))
-            writableSet.append(cppField.m_extensions[CPP_COPY_FIELD_POST_CODE])
+            assertIsWritableSetAny(cppField.m_extensions[CPP_COPY_FIELD_POST_CODE])
+            writableSet.append(text=cppField.m_extensions[CPP_COPY_FIELD_POST_CODE])
 
         if CPP_COPY_FIELD_POST_CODE in cppField.m_fieldType.m_extensions:
-            assert(isinstance(cppField.m_fieldType.m_extensions[CPP_COPY_FIELD_POST_CODE],WritableSet))
-            writableSet.append(cppField.m_fieldType.m_extensions[CPP_COPY_FIELD_POST_CODE])
+            assertIsWritableSetAny(cppField.m_fieldType.m_extensions[CPP_COPY_FIELD_POST_CODE])
+            writableSet.append(text=cppField.m_fieldType.m_extensions[CPP_COPY_FIELD_POST_CODE])
 
         writableSet.popEnv()

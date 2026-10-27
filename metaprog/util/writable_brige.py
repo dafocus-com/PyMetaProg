@@ -27,6 +27,15 @@ class WritableBridge(Writable):
         self.m_method:Callable[[Any, Writer, Config], None] = method
 
 
-    def write(self, writer:Writer, config:Config):
+    def write(self, writer:Writer, config:Config) -> None:
         (self.m_method)(self.m_obj, writer, config)
+
+class WritableBridgeOnFunction(Writable):
+    '''! Bridge that calls a functiton '''
+    def __init__(self, method: Callable[[Writer, Config], None]) -> None:
+        super().__init__()
+        self.m_method:Callable[[Writer, Config], None] = method
+
+    def write(self, writer:Writer, config:Config) -> None:
+        (self.m_method)(writer, config)
         

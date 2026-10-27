@@ -28,7 +28,7 @@ class CsRValue(ABC):
     '''! Base class for objects that can become an R-Value '''
 
     @abstractmethod
-    def generateValue(self, writer:Writer, config:CsConfig, otherScope:Optional[CsNameScope]=None)->None:
+    def generateValue(self, writer:Writer, config:CsConfig, otherScope:Optional[CsNameScope]=None) -> None:
         '''! Generate the R-value text '''
         ...
 
@@ -36,13 +36,13 @@ CsRValueAny:TypeAlias = Union[CsRValue,str,Writable,None]
 
 class CsRValueContainer(Writable):
     '''! Container for values '''
-    def __init__(self, csValueAny:CsRValueAny):
+    def __init__(self, csValueAny:CsRValueAny) -> None:
         self.m_csValueAny:CsRValueAny = csValueAny
 
     def empty(self)->bool:
         return self.m_csValueAny is None
 
-    def write(self, writer:Writer, config:Config):
+    def write(self, writer:Writer, config:Config) -> None:
         '''! Generate the R-value text '''
         if self.m_csValueAny is None: return
         if isinstance(self.m_csValueAny, Writable):

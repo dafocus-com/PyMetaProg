@@ -21,5 +21,5 @@ from abc import ABC, abstractmethod
 class Writable(ABC):
     '''! Base class for all writable objects '''
     @abstractmethod
-    def write(self, writer:Writer, config:Config):
+    def write(self, writer:Writer, config:Config) -> None:
         ...

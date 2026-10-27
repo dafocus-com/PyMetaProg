@@ -27,7 +27,7 @@ class CsNamespace(CsNameScopeWithChildren):
         self.__prevNamespace:Optional[CsNamespace] = None
         self.__generateAsClass:bool = generateAsClass
 
-    def __enterNamespace(self, writer:Writer, config:CsConfig)->None:
+    def __enterNamespace(self, writer:Writer, config:CsConfig) -> None:
         self.__prevNamespace = config.m_csCurrentNameScope # type: ignore
         config.m_csCurrentNameScope = self
         if self.__generateAsClass:
@@ -36,12 +36,12 @@ class CsNamespace(CsNameScopeWithChildren):
             writer.writeNL(f'namespace {self.getCsUnqualifiedName()} {{')
         writer.incIndent()
 
-    def __exitNamespace(self, writer:Writer, config:CsConfig)->None:
+    def __exitNamespace(self, writer:Writer, config:CsConfig) -> None:
         writer.decIndent()
         writer.writeNL(f'}} // namespace {self.getCsUnqualifiedName()}')
         config.m_csCurrentNameScope = self.__prevNamespace
 
-    def generateCsBody(self, writer:Writer, config:CsConfig)->None:
+    def generateCsBody(self, writer:Writer, config:CsConfig) -> None:
         self.__enterNamespace(writer, config)
         super().generateCsBody(writer, config)
         self.__exitNamespace(writer, config)

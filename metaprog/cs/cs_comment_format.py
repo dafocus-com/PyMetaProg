@@ -17,7 +17,7 @@
 from metaprog.util.writer import Writer
 from metaprog.util.config import Config
 from textwrap import wrap
-from metaprog.util.comment_entry import *
+from metaprog.util.comment_entry import CommentEntry, COMMENT_BRIEF, COMMENT_SUMMARY
 from metaprog.util.comment_format import CommentFormat
 
 
@@ -53,14 +53,14 @@ class CsCommentFormat(CommentFormat):
                 .replace("'", "&apos;"))
 
     #=======================================================================================
-    def writeElement(self, entry:CommentEntry, writer:Writer, config:Config):
+    def _writeElement(self, entry:CommentEntry, writer:Writer, config:Config) -> None:
         '''! Write a comment entry using the indicated format '''
         lineStart = "/// "
         
         if entry.m_command in self.m_mapCommands:
             command:str = self.m_mapCommands[entry.m_command]
         else:
-            command:str = entry.m_command
+            command = entry.m_command
 
         multiLine:bool = False
         if command == COMMENT_SUMMARY:
@@ -88,11 +88,11 @@ class CsCommentFormat(CommentFormat):
             
 
     #=======================================================================================
-    def writeComment(self, entries:list[CommentEntry], writer:Writer, config:Config):
+    def writeComment(self, entries:list[CommentEntry], writer:Writer, config:Config) -> None:
         '''! Write a comment using the indicated format '''
         if not entries: return
 
         if self.m_startWithEmtpyLine:
             writer.writeRaw("\n")
         for entry in entries:
-            self.writeElement(entry=entry, writer=writer, config=config)
+            self._writeElement(entry=entry, writer=writer, config=config)

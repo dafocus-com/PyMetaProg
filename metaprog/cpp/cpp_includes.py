@@ -61,7 +61,7 @@ class CppIncludes(Writable):
                 else:
                     self.add(includeName=incl.m_includeName, systemInclude=incl.m_systemInclude)
 
-    def add(self, includeName: str, systemInclude: Optional[bool] = None):
+    def add(self, includeName: str, systemInclude: Optional[bool] = None) -> None:
         '''! Add an include
         @param includeName   Name of the file to be included
         @param systemInclude `True` if to be included with <...>; `False` for "..."
@@ -86,8 +86,7 @@ class CppIncludes(Writable):
                 return
         self.m_includes.append(CppInclude(includeName=includeName, systemInclude=systemInclude))
 
-    def addRelativeToOtherFile(self, includedFile: Path, includingFile: Path,
-                               systemInclude: Optional[bool] = False):
+    def addRelativeToOtherFile(self, includedFile: Path, includingFile: Path, systemInclude: Optional[bool] = False) -> None:
         '''! Add an include calculating the path relative to another file
         @param includedFile  File being included
         @param includingFile File that is including
@@ -120,7 +119,7 @@ class CppIncludes(Writable):
 
         self.add(relative.as_posix(), systemInclude=systemInclude)
 
-    def merge(self, other: CppIncludes):
+    def merge(self, other: CppIncludes) -> None:
         for incl in other.m_includes:
             self.add(includeName=incl.m_includeName, systemInclude=incl.m_systemInclude)
 

@@ -25,9 +25,9 @@ class FreeText(Writable):
         super().__init__()
         self.m_text:str = ""
 
-    def addAutoNewline(self, text:str)->None:
+    def addAutoNewline(self, text:str) -> None:
         '''! If the string is not empty and not terminated by newline, it terminates it with newline '''
         self.m_text += autoNewline(text)
     
-    def write(self, writer:Writer, config:Config):
+    def write(self, writer:Writer, config:Config) -> None:
         writer.writeRaw(self.m_text)

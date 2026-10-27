@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 from .cs_namescope import CsNameScope
-from .cs_usings import CsUsingsAny
+from .cs_includes import CsIncludesAny
 from metaprog.util.extensions import ExtensionsAny
 
 class CsClassBase(CsNameScope):
@@ -25,8 +25,8 @@ class CsClassBase(CsNameScope):
             self, 
             nameScope:str,
             baseClass:str|CsClassBase|None=None, 
-            csUsings:CsUsingsAny=None,
+            csIncludes:CsIncludesAny=None,
             extensions:ExtensionsAny=None,
         ) -> None:
-        super().__init__(nameScope=nameScope, csUsings=csUsings, extensions=extensions)
+        super().__init__(nameScope=nameScope, csIncludes=csIncludes, extensions=extensions)
         self.m_baseClass:str|CsClassBase|None = baseClass

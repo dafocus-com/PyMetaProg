@@ -15,7 +15,8 @@
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
 from pathlib import Path
-
+from typing import Optional
+import re
 
 def autoNewline(text: str) -> str:
     '''! If the string is not empty and not terminated by newline, it terminates it with newline '''
@@ -33,7 +34,7 @@ def firstLetterLowerCase(s: str) -> str:
 def firstLetterUpperCase(s: str) -> str:
     return s[:1].upper() + s[1:] if s else ''
 
-def customRelativeTo(path: Path, base: Path):
+def customRelativeTo(path: Path, base: Path) -> Path:
     path = Path(path).resolve()
     base = Path(base).resolve()
 
@@ -55,3 +56,43 @@ def customRelativeTo(path: Path, base: Path):
         up = ['..'] * (len(base_parts) - common)
         down = list(path_parts[common:])
         return Path(*up, *down)
+
+
+def libPath() -> Path:
+    '''! Returns the path of the `lib` directory where fixed source files can be found '''
+    return Path(__file__).parent.parent.parent / 'lib'
+
+
+def writeIfChanged(targetFilePath:Path, text:str) -> bool:
+    doWrite:bool = True
+    readableFileName:str = str(targetFilePath.resolve())
+
+    # Check if the target file is to be rewritten because changed
+    if targetFilePath.is_file():
+        with open(targetFilePath, "r", encoding="utf-8") as file:
+            oldText:str = file.read()
+        if oldText == text:
+            doWrite = False
+    
+    if doWrite:
+        dir: Path = targetFilePath.parent
+        if not dir.exists():
+            dir.mkdir(parents=True, exist_ok=True)
+            print(f'Creating directory "{dir}"')
+
+        with open(targetFilePath, "w", encoding="utf-8") as outFile:
+            outFile.write(text)
+        
+        print(f'Written "{readableFileName}"')
+    else:
+        print(f'Skipped "{readableFileName}" (not changed)')
+    return doWrite
+
+def copyIfChanged(targetFilePath:Path, sourceFilePath:Path) -> bool:
+    text:str = sourceFilePath.read_text(encoding="utf-8")
+    return writeIfChanged(targetFilePath=targetFilePath, text=text)
+
+def isValidIdentifier(candidate_ident:str) -> bool:
+    '''! Makes sure a string is a valid C-like identifier '''
+    matchResult:Optional[re.Match[str]] = re.search(r'^[A-Za-z_][A-Za-z0-9_]*$', candidate_ident)
+    return (not matchResult is None)

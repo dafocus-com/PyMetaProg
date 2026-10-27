@@ -16,41 +16,46 @@
 
 '''! Generates the dastd marshaling code ontop of an existing class '''
 from __future__ import annotations
+from .cpp_clear_generator import CPP_CLEAR_GENERATED, CLEAR_METHOD
+from .cpp_generator_base import CppGeneratorBase
 from enum import Enum
+from metaprog.cpp_gen.cpp_rtti_generator import CPP_RTTI_GENERATED
 from metaprog.cpp.cpp_class import CppClass
-from metaprog.cpp.cpp_type import *
+from metaprog.cpp.cpp_enum_base import CppEnumBase
 from metaprog.cpp.cpp_field import CppField
+from metaprog.cpp.cpp_labels import CppVisibility, CppVirtuality, CppInline, CppStaticity
 from metaprog.cpp.cpp_method import CppMethod
+from metaprog.cpp.cpp_module_config import CppModuleConfig
+from metaprog.cpp.cpp_namescope import CppNameScope
 from metaprog.cpp.cpp_param import CppParam
-from metaprog.cpp.cpp_labels import *
+from metaprog.cpp.cpp_type import CppType, CppTypeSimple, CppTypeMap, CppTypeVector, CppTypeBinary, CppTypeString, CppTypeSharedPtr, CppTypeClass
+from metaprog.util.config import Config, env
+from metaprog.util.log import logError
 from metaprog.util.writable import Writable
-from metaprog.util.writable_set import WritableSet
+from metaprog.util.writable_set import WritableSet, assertIsWritableSetAny
 from metaprog.util.writer import Writer
-from metaprog.util.config import *
-from metaprog.util.log import *
-from metaprog.cpp_gen.cpp_rtti_generator import RTTI_GENERATED
-from .cpp_generator_base import *
-from .cpp_clear_generator import *
-
+from typing import Optional
 import re
 
 # Key to be used in the CppField "extension" dictionary to enable or disable the generation of the field
-CPP_MARSHAL_FIELD_ENABLE="cpp_marshal_enable"   # -> True or False
-CPP_MARSHAL_FIELD_NAME  ="cpp_marshal_name"     # -> Optional string for a different field name
+CPP_MARSHAL_FIELD_ENABLE:str = "cpp_marshal_enable"   # -> True or False
+CPP_MARSHAL_FIELD_NAME  :str = "cpp_marshal_name"     # -> Optional string for a different field name
 
 # Key to be used in the CppClass "extension" dictionary to enable or disable the generation of the class
-CPP_MARSHAL_CLASS_GENERATED="cpp_marshal_generated" # -> bool, created and written by this module to mark that has been processed
-CPP_MARSHAL_CLASS_ANTILOOP ="cpp_marshal_antiloop"
-CPP_MARSHAL_CLASS_NAME     ="cpp_marshal_name"      # -> Alternate name used by this class to calculate the unique id used when streaming
+CPP_MARSHAL_CLASS_GENERATED:str = "cpp_marshal_generated" # -> bool, created and written by this module to mark that has been processed
+CPP_MARSHAL_CLASS_ANTILOOP :str = "cpp_marshal_antiloop"
+CPP_MARSHAL_CLASS_NAME     :str = "cpp_marshal_name"      # -> Alternate name used by this class to calculate the unique id used when streaming
 
 # Key to be used in the CppType "extension" dictionary
-CPP_MARSHAL_TYPE_HAS_ENCODE_DECODE = "cpp_marshal_has_encodece"  # -> The type has regular encode/decode functions
+CPP_MARSHAL_TYPE_HAS_ENCODE_DECODE:str = "cpp_marshal_has_encodece"  # -> The type has regular encode/decode functions
 
 # Once the generator has executed, these extensions contain the name that
 # has been assigned to some methods. This allows the following generators to
 # invoke them by calling them with their correct name.
 CPP_MARSHAL_METHOD_ENCODE:str = "cpp_marshal_method_encode"
 CPP_MARSHAL_METHOD_DECODE:str = "cpp_marshal_method_decode"
+CPP_MARSHAL_METHOD_POLYMORPHIC_ENCODE:str = "cpp_marshal_method_polymorphic_encode"
+CPP_MARSHAL_METHOD_POLYMORPHIC_DECODE:str = "cpp_marshal_method_polymorphic_decode"
 
 
 class CppMarshalGeneratorMode(Enum):
@@ -186,15 +191,16 @@ class CppMarshalGenerator(CppGeneratorBase):
         return f"k_marshal_attr_name_{streamedName}"
 
     #=============================================================================================
-    def _baseClassHasStreaming(self, cppClass:CppClass)->bool:
-        ''' CAN BE REDEFINED 
+    @staticmethod
+    def baseClassHasStreaming(cppClass:CppClass)->bool:
+        '''
             Returns `True` if the `cppClass` has a base class that is streamable.
             By default considers deriving from a `CppClass` object as having a streamable base class.
         '''
         return cppClass.m_baseClass is not None and isinstance(cppClass.m_baseClass, CppClass)
 
     #=============================================================================================
-    def _writeDecodeCodeInner(self, writer:Writer, config:Config, fieldType:CppType, fieldExpr:str, cppClass:CppClass, dec:str):
+    def _writeDecodeCodeInner(self, writer:Writer, config:Config, fieldType:CppType, fieldExpr:str, cppClass:CppClass, dec:str) -> None:
         ''' CAN BE REDEFINED 
             Writes the decoding according to the attribute type
         '''
@@ -222,7 +228,11 @@ class CppMarshalGenerator(CppGeneratorBase):
         if CPP_MARSHAL_TYPE_HAS_ENCODE_DECODE in fieldType.m_extensions:
             writer.writeNL(f'{fieldExpr}.decode({dec});')
             return
-        
+
+        if cppType=='double':
+            writer.writeNL(f'{fieldExpr} = {dec}.decode_f64();')
+            return
+
         if re.search(r'^u?int([0-9]+)_t$', cppType) or cppType=='bool':
             writer.writeNL(f'{fieldExpr} = {dec}.decode<{cppType}>();')
             return
@@ -231,10 +241,10 @@ class CppMarshalGenerator(CppGeneratorBase):
         logError(f"attribute `{fieldExpr}` uses an unsupported type: {cppType}")
 
     #=============================================================================================
-    def _writeDecodeCode(self, writer:Writer, config:Config, fieldType:CppType, fieldExpr:str, cppClass:CppClass, dec:str):
+    def _writeDecodeCode(self, writer:Writer, config:Config, fieldType:CppType, fieldExpr:str, cppClass:CppClass, dec:str) -> None:
         self._writeDecodeCodeInner(writer=writer, config=config, fieldType=fieldType, fieldExpr=fieldExpr, cppClass=cppClass, dec=dec)
         if CPP_MARSHAL_DECODE_FIELDTYPE_POST_CODE in fieldType.m_extensions:
-            assert(isinstance(fieldType.m_extensions[CPP_MARSHAL_DECODE_FIELDTYPE_POST_CODE],WritableSet))
+            assertIsWritableSetAny(fieldType.m_extensions[CPP_MARSHAL_DECODE_FIELDTYPE_POST_CODE])
             writableSet = WritableSet()
             writableSet.pushEnv(env={_CPP_MARSHAL_FIELD:fieldExpr})
             writableSet.append(fieldType.m_extensions[CPP_MARSHAL_DECODE_FIELDTYPE_POST_CODE])
@@ -242,7 +252,7 @@ class CppMarshalGenerator(CppGeneratorBase):
             writableSet.write(writer=writer, config=config)
 
     #=============================================================================================
-    def _writeDecodeCustomOnNewCode(self, writer:Writer, config:Config, fieldType:CppType, fieldExpr:str, cppClass:CppClass, dec:str):
+    def _writeDecodeCustomOnNewCode(self, writer:Writer, config:Config, fieldType:CppType, fieldExpr:str, cppClass:CppClass, dec:str) -> None:
         if CPP_MARSHAL_DECODE_FIELDTYPE_ON_NEW_CODE in fieldType.m_extensions:
             assert(isinstance(fieldType.m_extensions[CPP_MARSHAL_DECODE_FIELDTYPE_ON_NEW_CODE],WritableSet))
             writableSet = WritableSet()
@@ -253,7 +263,7 @@ class CppMarshalGenerator(CppGeneratorBase):
 
 
     #=============================================================================================
-    def _writeEncodeCode(self, writer:Writer, config:Config, fieldType:CppType, fieldExpr:str, cppClass:CppClass, enc:str):
+    def _writeEncodeCode(self, writer:Writer, config:Config, fieldType:CppType, fieldExpr:str, cppClass:CppClass, enc:str) -> None:
         ''' CAN BE REDEFINED 
             Writes the decoding according to the attribute type
         '''
@@ -281,7 +291,11 @@ class CppMarshalGenerator(CppGeneratorBase):
         if CPP_MARSHAL_TYPE_HAS_ENCODE_DECODE in fieldType.m_extensions:
             writer.writeNL(f'{fieldExpr}.encode({enc});')
             return
-        
+
+        if cppType=='double':
+            writer.writeNL(f'{enc}.encode_f64({fieldExpr});')
+            return
+
         if re.search(r'^u?int([0-9]+)_t$', cppType) or cppType=='bool':
             writer.writeNL(f'{enc}.encode<{cppType}>({fieldExpr});')
             return
@@ -290,7 +304,7 @@ class CppMarshalGenerator(CppGeneratorBase):
         logError(f"attribute `{fieldExpr}` uses an unsupported type: {cppType}")
 
     #=============================================================================================
-    def __writeDecodeCodeForVector(self, writer:Writer, config:Config, fieldType:CppTypeVector, fieldExpr:str, cppClass:CppClass, dec:str):
+    def __writeDecodeCodeForVector(self, writer:Writer, config:Config, fieldType:CppTypeVector, fieldExpr:str, cppClass:CppClass, dec:str) -> None:
         anticipatedSizeVar:str = '__num_of_elements'
         writer.writeNL(text=f'''\
             size_t {anticipatedSizeVar} = {dec}.decode_array_begin();
@@ -317,7 +331,7 @@ class CppMarshalGenerator(CppGeneratorBase):
 
 
     #=============================================================================================
-    def __writeEncodeCodeForVector(self, writer:Writer, config:Config, fieldType:CppTypeVector, fieldExpr:str, cppClass:CppClass, enc:str):
+    def __writeEncodeCodeForVector(self, writer:Writer, config:Config, fieldType:CppTypeVector, fieldExpr:str, cppClass:CppClass, enc:str) -> None:
         iterator:str = "__item"
 
         writer.writeNL(text=f'''\
@@ -341,7 +355,7 @@ class CppMarshalGenerator(CppGeneratorBase):
         ''')
 
     #=============================================================================================
-    def __writeDecodeCodeForMap(self, writer:Writer, config:Config, fieldType:CppTypeMap, fieldExpr:str, cppClass:CppClass, dec:str):
+    def __writeDecodeCodeForMap(self, writer:Writer, config:Config, fieldType:CppTypeMap, fieldExpr:str, cppClass:CppClass, dec:str) -> None:
         if not isinstance(fieldType.m_keyType, CppTypeString):
             logError(f"attribute `{fieldExpr}` uses CppTypeMap with key of type {fieldType.m_keyType}: only CppTypeString are supported as keys.")
             return
@@ -382,7 +396,7 @@ class CppMarshalGenerator(CppGeneratorBase):
 
 
     #=============================================================================================
-    def __writeEncodeCodeForMap(self, writer:Writer, config:Config, fieldType:CppTypeMap, fieldExpr:str, cppClass:CppClass, enc:str):
+    def __writeEncodeCodeForMap(self, writer:Writer, config:Config, fieldType:CppTypeMap, fieldExpr:str, cppClass:CppClass, enc:str) -> None:
         if not isinstance(fieldType.m_keyType, CppTypeString):
             logError(f"attribute `{fieldExpr}` uses CppTypeMap with key of type {fieldType.m_keyType}: only CppTypeString are supported as keys.")
             return
@@ -411,7 +425,7 @@ class CppMarshalGenerator(CppGeneratorBase):
 
 
     #=============================================================================================
-    def __writeDecodeCodeForSharedPtr(self, writer:Writer, config:Config, fieldType:CppTypeSharedPtr, fieldExpr:str, cppClass:CppClass, dec:str)->None:
+    def __writeDecodeCodeForSharedPtr(self, writer:Writer, config:Config, fieldType:CppTypeSharedPtr, fieldExpr:str, cppClass:CppClass, dec:str) -> None:
         typeVar:str = "marshal_type"
         ptrVar:str = "marshal_ptr"
 
@@ -451,7 +465,7 @@ class CppMarshalGenerator(CppGeneratorBase):
 
 
     #=============================================================================================
-    def __writeEncodeCodeForClass(self, writer:Writer, config:Config, fieldType:CppTypeClass, fieldExpr:str, cppClass:CppClass, enc:str)->None:
+    def __writeEncodeCodeForClass(self, writer:Writer, config:Config, fieldType:CppTypeClass, fieldExpr:str, cppClass:CppClass, enc:str) -> None:
         if isinstance(fieldType.m_cppClass, CppEnumBase):
             writer.writeNL(f'{enc}.encode<{fieldType.m_cppClass.getCppQualifiedName(otherScope=cppClass)}>({fieldExpr});')
         else:    
@@ -459,7 +473,7 @@ class CppMarshalGenerator(CppGeneratorBase):
 
 
     #=============================================================================================
-    def __writeDecodeCodeForClass(self, writer:Writer, config:Config, fieldType:CppTypeClass, fieldExpr:str, cppClass:CppClass, dec:str)->None:
+    def __writeDecodeCodeForClass(self, writer:Writer, config:Config, fieldType:CppTypeClass, fieldExpr:str, cppClass:CppClass, dec:str) -> None:
         if isinstance(fieldType.m_cppClass, CppEnumBase):
             writer.writeNL(f'{fieldExpr} = {dec}.decode<{fieldType.m_cppClass.getCppQualifiedName(otherScope=cppClass)}>();')
         else:    
@@ -467,7 +481,7 @@ class CppMarshalGenerator(CppGeneratorBase):
 
 
     #=============================================================================================
-    def __writeEncodeCodeForSharedPtr(self, writer:Writer, config:Config, fieldType:CppTypeSharedPtr, fieldExpr:str, cppClass:CppClass, enc:str)->None:
+    def __writeEncodeCodeForSharedPtr(self, writer:Writer, config:Config, fieldType:CppTypeSharedPtr, fieldExpr:str, cppClass:CppClass, enc:str) -> None:
         writer.writeNL(f'''
             if ({fieldExpr} == nullptr) {{
                 DASTD_THROW(dastd::exception_marshal, "{cppClass.getCppQualifiedName()}::{self.m_encodeMethodName} shared pointer '{fieldExpr}' is null");
@@ -496,10 +510,10 @@ class CppMarshalGenerator(CppGeneratorBase):
         if CPP_MARSHAL_CLASS_GENERATED in cppClass.m_extensions:
             logError(f"class `{cppClass.getCppQualifiedName()}` generated more than once")
             return
-        if not RTTI_GENERATED in cppClass.m_extensions:
+        if not CPP_RTTI_GENERATED in cppClass.m_extensions:
             logError(f"class `{cppClass.getCppQualifiedName()}` must first be processed by the `cpp_rtti_generator` module")
             return 
-        if not CLEAR_GENERATED in cppClass.m_extensions:
+        if not CPP_CLEAR_GENERATED in cppClass.m_extensions:
             logError(f"class `{cppClass.getCppQualifiedName()}` must first be processed by the `cpp_clear_generator` module")
             return 
         cppClass.m_extensions[CPP_MARSHAL_CLASS_GENERATED] = True
@@ -509,6 +523,12 @@ class CppMarshalGenerator(CppGeneratorBase):
         # Create the list of attributes
         marshaledAttributes:list[CppMarshalGenerator.MarshaledAttribute] = list()
         self.__fillMarshaledAttributes(cppClass=cppClass, marshaledAttributes=marshaledAttributes)
+
+        # Export the names
+        cppClass.m_extensions[CPP_MARSHAL_METHOD_ENCODE] = self.m_encodeMethodName
+        cppClass.m_extensions[CPP_MARSHAL_METHOD_DECODE] = self.m_decodeMethodName
+        cppClass.m_extensions[CPP_MARSHAL_METHOD_POLYMORPHIC_ENCODE] = self.m_polymorphicEncode
+        cppClass.m_extensions[CPP_MARSHAL_METHOD_POLYMORPHIC_DECODE] = self.m_polymorphicDecode
 
         # Generate the name constants
         for marshaledAttribute in marshaledAttributes: self.__generateFieldNameConstant(cppClass=cppClass, marshaledAttribute=marshaledAttribute)
@@ -520,9 +540,10 @@ class CppMarshalGenerator(CppGeneratorBase):
         self.__generateMarshalClassId(cppClass=cppClass)
         self.__generateMarshalnewInstance(cppClass=cppClass)
 
+
     #=============================================================================================
-    def __fillMarshaledAttributes(self, marshaledAttributes:list[MarshaledAttribute], cppClass:CppClass, isBaseClass:bool=False):
-        if self._baseClassHasStreaming(cppClass=cppClass):
+    def __fillMarshaledAttributes(self, marshaledAttributes:list[MarshaledAttribute], cppClass:CppClass, isBaseClass:bool=False) -> None:
+        if CppMarshalGenerator.baseClassHasStreaming(cppClass=cppClass):
             assert(isinstance(cppClass.m_baseClass, CppClass))
             baseClass:CppClass = cppClass.m_baseClass
             assert(CPP_MARSHAL_CLASS_ANTILOOP not in baseClass.m_extensions) # Detected class inheritance loop!
@@ -571,7 +592,7 @@ class CppMarshalGenerator(CppGeneratorBase):
         return fields
 
     #=============================================================================================
-    def __generateFieldNameConstant(self, cppClass:CppClass, marshaledAttribute:MarshaledAttribute):
+    def __generateFieldNameConstant(self, cppClass:CppClass, marshaledAttribute:MarshaledAttribute) -> None:
         if marshaledAttribute.m_derivedFromBaseClass: return
         cppClass.addClassElement(
             CppField(
@@ -585,13 +606,13 @@ class CppMarshalGenerator(CppGeneratorBase):
         )
 
     #=============================================================================================
-    def __generateFieldDescriptor(self, cppClass:CppClass, marshaledAttributes:list[MarshaledAttribute]):
+    def __generateFieldDescriptor(self, cppClass:CppClass, marshaledAttributes:list[MarshaledAttribute]) -> None:
 
         class FieldDescritptor(Writable):
-            def __init__(self, marshaledAttributes:list[CppMarshalGenerator.MarshaledAttribute]):
+            def __init__(self, marshaledAttributes:list[CppMarshalGenerator.MarshaledAttribute]) -> None:
                 self.m_marshaledAttributes:list[CppMarshalGenerator.MarshaledAttribute] = marshaledAttributes
             
-            def write(self, writer:Writer, config:Config):
+            def write(self, writer:Writer, config:Config) -> None:
 
                 writer.writeNL("{")
                 writer.incIndent()
@@ -628,11 +649,9 @@ class CppMarshalGenerator(CppGeneratorBase):
         )
 
     #=============================================================================================
-    def __generateDecodeMethod(self, cppClass:CppClass, marshaledAttributes:list[MarshaledAttribute]):
-        cppClass.m_extensions[CPP_MARSHAL_METHOD_DECODE] = self.m_decodeMethodName
+    def __generateDecodeMethod(self, cppClass:CppClass, marshaledAttributes:list[MarshaledAttribute]) -> None:
         mayBeUnused:bool = (len(marshaledAttributes) == 0)
-        derived:bool = self._baseClassHasStreaming(cppClass)
-
+        derived:bool = CppMarshalGenerator.baseClassHasStreaming(cppClass)
         
         methodName:str = f'{cppClass.getCppQualifiedName()}::{self.m_decodeMethodName}'
         code:WritableSet = WritableSet()
@@ -646,9 +665,9 @@ class CppMarshalGenerator(CppGeneratorBase):
             structFields:str = self.m_fieldsArrayName
             structFieldsCount:str = self.m_fieldsCountName
         else:
-            dupeMap:str = "nullptr"
-            structFields:str = "nullptr"
-            structFieldsCount:str = "0"
+            dupeMap = "nullptr"
+            structFields = "nullptr"
+            structFieldsCount = "0"
 
         code.append(f'''\
             // Clear the object before decoding
@@ -670,12 +689,15 @@ class CppMarshalGenerator(CppGeneratorBase):
                 if (field_is_present) {{
                     bool decoded = {self.m_decodeAttrMethodName}(dec, label_id, {dupeMap});
                     if (!decoded) {{
-                        dastd::char32string label_text;
-                        if (dec.get_field_name(label_id, label_text)) {{
-                            DASTD_THROW(dastd::exception_marshal, "{methodName} unknown attribute " << dastd::fmt32_cq(label_text));
-                        }}
-                        else {{
-                            DASTD_THROW(dastd::exception_marshal, "{methodName} unknown attribute with label_id=" << label_id);
+                        // Attempt to skip it
+                        if (!dec.decode_struct_field_skip()) {{
+                            dastd::char32string label_text;
+                            if (dec.get_field_name(label_id, label_text)) {{
+                                DASTD_THROW(dastd::exception_marshal, "{methodName} unknown attribute " << dastd::fmt32_cq(label_text));
+                            }}
+                            else {{
+                                DASTD_THROW(dastd::exception_marshal, "{methodName} unknown attribute with label_id=" << label_id);
+                            }}
                         }}
                     }}
                 }}
@@ -708,19 +730,19 @@ class CppMarshalGenerator(CppGeneratorBase):
         )
 
     #=============================================================================================
-    def __generateDecodeAttrMethod(self, cppClass:CppClass, marshaledAttributes:list[MarshaledAttribute]):
+    def __generateDecodeAttrMethod(self, cppClass:CppClass, marshaledAttributes:list[MarshaledAttribute]) -> None:
         mayBeUnused:bool = (len(marshaledAttributes) == 0)
-        derived:bool = self._baseClassHasStreaming(cppClass)
+        derived:bool = CppMarshalGenerator.baseClassHasStreaming(cppClass)
 
         class DecodeAttrMethodCode(Writable):
-            def __init__(self, cppMarshalGenerator:CppMarshalGenerator, methodName:str, cppClass:CppClass, marshaledAttributes:list[CppMarshalGenerator.MarshaledAttribute], derived:bool):
+            def __init__(self, cppMarshalGenerator:CppMarshalGenerator, methodName:str, cppClass:CppClass, marshaledAttributes:list[CppMarshalGenerator.MarshaledAttribute], derived:bool) -> None:
                 self.m_methodName:str = methodName
                 self.m_cppMarshalGenerator:CppMarshalGenerator = cppMarshalGenerator
                 self.m_marshaledAttributes:list[CppMarshalGenerator.MarshaledAttribute] = marshaledAttributes
                 self.m_cppClass:CppClass = cppClass
                 self.m_derived:bool = derived
             
-            def write(self, writer:Writer, config:Config):
+            def write(self, writer:Writer, config:Config) -> None:
                 if self.m_derived:
                     assert(isinstance(self.m_cppClass.m_baseClass, CppClass))
                     writer.writeNL(f"if ({self.m_cppClass.m_baseClass.getCppQualifiedName(self.m_cppClass)}::{self.m_methodName}(dec, label_id, dupe_map)) return true;")
@@ -780,9 +802,8 @@ class CppMarshalGenerator(CppGeneratorBase):
         )
 
     #=============================================================================================
-    def __generateEncodeMethod(self, cppClass:CppClass, marshaledAttributes:list[MarshaledAttribute]):
-        cppClass.m_extensions[CPP_MARSHAL_METHOD_ENCODE] = self.m_encodeMethodName
-        if self._baseClassHasStreaming(cppClass): return
+    def __generateEncodeMethod(self, cppClass:CppClass, marshaledAttributes:list[MarshaledAttribute]) -> None:
+        if CppMarshalGenerator.baseClassHasStreaming(cppClass): return
 
         cppClass.addClassElement(
             CppMethod(
@@ -835,19 +856,19 @@ class CppMarshalGenerator(CppGeneratorBase):
         #
 
     #=============================================================================================
-    def __generateEncodeAttrMethod(self, cppClass:CppClass, marshaledAttributes:list[MarshaledAttribute]):
+    def __generateEncodeAttrMethod(self, cppClass:CppClass, marshaledAttributes:list[MarshaledAttribute]) -> None:
         mayBeUnused:bool = (len(marshaledAttributes) == 0)
-        derived:bool = self._baseClassHasStreaming(cppClass)
+        derived:bool = CppMarshalGenerator.baseClassHasStreaming(cppClass)
         
         class EncodeAttrMethodCode(Writable):
-            def __init__(self, cppMarshalGenerator:CppMarshalGenerator, methodName:str, cppClass:CppClass, marshaledAttributes:list[CppMarshalGenerator.MarshaledAttribute], derived:bool):
+            def __init__(self, cppMarshalGenerator:CppMarshalGenerator, methodName:str, cppClass:CppClass, marshaledAttributes:list[CppMarshalGenerator.MarshaledAttribute], derived:bool) -> None:
                 self.m_methodName:str = methodName
                 self.m_cppMarshalGenerator:CppMarshalGenerator = cppMarshalGenerator
                 self.m_marshaledAttributes:list[CppMarshalGenerator.MarshaledAttribute] = marshaledAttributes
                 self.m_cppClass:CppClass = cppClass
                 self.m_derived:bool = derived
             
-            def write(self, writer:Writer, config:Config):
+            def write(self, writer:Writer, config:Config) -> None:
                 if self.m_derived:
                     assert(isinstance(self.m_cppClass.m_baseClass, CppClass))
                     writer.writeNL(f"{self.m_cppClass.m_baseClass.getCppQualifiedName(self.m_cppClass)}::{self.m_methodName}(enc);")
@@ -880,8 +901,8 @@ class CppMarshalGenerator(CppGeneratorBase):
         )
 
     #=============================================================================================
-    def __generateMarshalClassId(self, cppClass:CppClass):
-        derived:bool = self._baseClassHasStreaming(cppClass)
+    def __generateMarshalClassId(self, cppClass:CppClass) -> None:
+        derived:bool = CppMarshalGenerator.baseClassHasStreaming(cppClass)
 
         if CPP_MARSHAL_CLASS_NAME in cppClass.m_extensions:
             assert(isinstance(cppClass.m_extensions[CPP_MARSHAL_CLASS_NAME], str))
@@ -940,16 +961,16 @@ class CppMarshalGenerator(CppGeneratorBase):
         )
 
     #=============================================================================================
-    def __generateMarshalnewInstance(self, cppClass:CppClass):
-        derived:bool = self._baseClassHasStreaming(cppClass)
-        if derived: return
+    @staticmethod
+    def getInlineModeForPolymorphicInstantiation(cppClass:CppClass, derivedClasses:list[CppClass]) -> CppInline:
+        '''! Returns the inline mode for polymorphic instantiation
         
+            If the classes are all in the same module, we can afford making the factory method
+            inline. Otherwise, we must put it in a .cpp file and include the other includes.
+        '''
         # Module that contains the base class
         baseModuleConfig:Optional[CppModuleConfig] = cppClass.getCppModuleConfig()
         assert(baseModuleConfig is not None)
-
-        # Get all the derived classes
-        derivedClasses:list[CppClass] = cppClass.findDerivedClasses()
 
         modules:set[CppModuleConfig] = set()
 
@@ -965,9 +986,19 @@ class CppMarshalGenerator(CppGeneratorBase):
                 assert(module == baseModuleConfig)
             cppInline:CppInline = CppInline.INLINE_OUTSIDE
         else:
-            cppInline:CppInline = CppInline.OUT_OF_LINE
+            cppInline = CppInline.OUT_OF_LINE
             for module in modules:
                 baseModuleConfig.includeModuleInCpp(module)
+        return cppInline
+
+    #=============================================================================================
+    def __generateMarshalnewInstance(self, cppClass:CppClass) -> None:
+        derived:bool = CppMarshalGenerator.baseClassHasStreaming(cppClass)
+        if derived: return
+        
+        # Get all the derived classes
+        derivedClasses:list[CppClass] = cppClass.findDerivedClasses()
+        cppInline:CppInline = CppMarshalGenerator.getInlineModeForPolymorphicInstantiation(cppClass=cppClass, derivedClasses=derivedClasses)
         
         #-----------------------------------------------------------------------------
         # NEW INSTANCE - Method implementation
@@ -1022,7 +1053,7 @@ class CppMarshalGenerator(CppGeneratorBase):
                 {ptrVar}->{self.m_decodeMethodName}({marshalDecoder});
             }}
             else {{
-                DASTD_THROW(dastd::exception_marshal, "{cppClass.getCppQualifiedName()}::{self.m_decodeMethodName} invalid type");
+                DASTD_THROW(dastd::exception_marshal, "{cppClass.getCppQualifiedName()}::{self.m_decodeMethodName} invalid type " << {typeVar});
             }}
             {marshalDecoder}.decode_typed_end();
             return {ptrVar};

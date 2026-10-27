@@ -18,19 +18,19 @@ from abc import ABC, abstractmethod
 from metaprog.util.writer import Writer
 from .cs_config import CsConfig
 from .cs_module_config import CsModuleConfig
-from .cs_usings import CsUsings, CsUsingsAny
+from .cs_includes import CsIncludes, CsIncludesAny
 from typing import Optional
 from metaprog.util.extensions import Extensions, ExtensionsAny
 
 
 class CsGenerable(ABC):
-    '''! Base class for the objects that can be generated in C++ '''
+    '''! Base class for the objects that can be generated in C# '''
     def __init__(
             self, 
-            csUsings:CsUsingsAny,
+            csIncludes:CsIncludesAny,
             extensions:ExtensionsAny,
         ):
-        self.m_csUsings:CsUsings = CsUsings(usings=csUsings)
+        self.m_csIncludes:CsIncludes = CsIncludes(usings=csIncludes)
         self.m_extensions:Extensions = Extensions(extensions=extensions)
         self.m_moduleConfig:Optional[CsModuleConfig] = None
         self.m_parent:Optional[CsGenerable] = None
@@ -42,11 +42,11 @@ class CsGenerable(ABC):
             return self.m_parent.getCsModuleConfig()
         return None
 
-    def setupModuleConfig(self, moduleConfig:CsModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CsModuleConfig) -> None:
         '''! Operate on the accessible parts of the module to add includes, header parts and so on '''
-        moduleConfig.m_csUsings.merge(self.m_csUsings)
+        moduleConfig.m_csIncludes.merge(self.m_csIncludes)
 
     @abstractmethod
-    def generateCsBody(self, writer:Writer, config:CsConfig)->None:
-        '''! Generate the body part of the C++ .cpp file, i.e. where implementation of the methods go '''
+    def generateCsBody(self, writer:Writer, config:CsConfig) -> None:
+        '''! Generate the body part of the C# .cs file, i.e. where implementation of the methods go '''
         ...

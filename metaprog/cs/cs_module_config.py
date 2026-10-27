@@ -16,24 +16,22 @@
 
 from __future__ import annotations
 from pathlib import Path
-from metaprog.util.comment import *
+from metaprog.util.comment import Comment
 from metaprog.util.freetext import FreeText
-from .cs_usings import CsUsings
+from .cs_includes import CsIncludes
 
 class CsModuleConfig:
-    '''! Configuration data for a .cs and an optional .cpp file '''
+    '''! Configuration data for a .cs file '''
     def __init__(self, csFilePath:Path) -> None:
         self.m_moduleComment:Comment = Comment()
 
-        self.m_csPreUsings:FreeText = FreeText()
-        self.m_csUsings:CsUsings = CsUsings()
-        self.m_csPostUsings:FreeText = FreeText()
+        self.m_csPreIncludes:FreeText = FreeText()
+        self.m_csIncludes:CsIncludes = CsIncludes()
+        self.m_csPostIncludes:FreeText = FreeText()
         self.m_csFooter:FreeText = FreeText()
 
         self.m_csFilePath:Path = csFilePath
 
-    def usingModuleInCs(self, otherModule:CsModuleConfig):
-        '''! Add the include related to `otherModule` to this module .cpp file '''
-        #self.m_cppUsings.addRelativeToOtherFile(otherModule.m_csFilePath, self.m_cppFilePath)
-        pass # TBD
+    def usingModuleInCs(self, otherModule:CsModuleConfig) -> None:
+        pass
 

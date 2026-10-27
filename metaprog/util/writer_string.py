@@ -19,12 +19,14 @@ from .writer import Writer
 class WriterString(Writer):
     '''! Writer that writes on a string '''
     #==============================================================================================
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.m_body:str = ""
 
     #==============================================================================================
-    def _internalWrite(self, text:str):
+    def _internalWrite(self, text:str) -> None:
         self.m_body += text
-
     
+    #==============================================================================================
+    def __str__(self) -> str: return self.m_body
+        

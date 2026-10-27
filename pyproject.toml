@@ -7,7 +7,7 @@ name = "PyMetaProg"
 version = "0.00.002"
 description = "Python based programmable code generator for multiple languages"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 authors = [{ name = "Davide Achilli" }]
 license = { text = "Apache 2.0" }
 

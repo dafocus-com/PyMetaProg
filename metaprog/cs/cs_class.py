@@ -18,18 +18,18 @@ from __future__ import annotations
 from .cs_class_base import CsClassBase
 from .cs_class_custom import CsClassCustom
 from .cs_class_element import CsClassElement
-from .cs_labels import *
-from .cs_usings import CsUsingsAny
+from .cs_labels import CsVisibility, CsClassVirtuality, CsVirtuality
+from .cs_includes import CsIncludesAny
 from .cs_config import CsConfig
-from .cs_method import *
+from .cs_method import CsMethod, CsMethodType
 from .cs_field import CsField
 from .cs_attribute import CsAttributes
 from .cs_module_config import CsModuleConfig
 from metaprog.util.writer import Writer
 from metaprog.util.writable_set import WritableSet
-from metaprog.util.comment import *
+from metaprog.util.comment import Comment, CommentAny
 from metaprog.util.extensions import ExtensionsAny
-from typing import Callable, Union
+from typing import Callable, Union, Optional
 
 # List containing all the CsClass objects
 CS_CLASSES:list[CsClass] = list()
@@ -63,12 +63,12 @@ class CsClass(CsClassBase):
         className:str, 
         baseClass:Union[str,CsClass,None]=None, 
         brief:CommentAny=None, # type: ignore
-        csUsings:CsUsingsAny=None, # type: ignore
+        csIncludes:CsIncludesAny=None, # type: ignore
         extensions:ExtensionsAny=None, # type: ignore
         classVirtuality:CsClassVirtuality = CsClassVirtuality.CLASS_NORMAL,
         classVisibility:CsVisibility = CsVisibility.PUBLIC,
     ) -> None:
-        super().__init__(nameScope=className, baseClass=baseClass, csUsings=csUsings, extensions=extensions) # type: ignore
+        super().__init__(nameScope=className, baseClass=baseClass, csIncludes=csIncludes, extensions=extensions) # type: ignore
         self.m_classElements:list[CsClassElement] = list()
         self.m_comment:Comment = Comment(commentAny=brief) # type: ignore
         self.m_classVirtuality:CsClassVirtuality = classVirtuality
@@ -121,7 +121,7 @@ class CsClass(CsClassBase):
         if self.m_baseClass is not None and isinstance(self.m_baseClass, CsClass):
             foundFields:list[CsField] = self.m_baseClass.findMultipleFields(ext=ext)
         else:
-            foundFields:list[CsField] = list()
+            foundFields = list()
         
         for fld in self.m_classElements:
             if isinstance(fld, CsField):
@@ -129,7 +129,7 @@ class CsClass(CsClassBase):
                     foundFields.append(fld)
         return foundFields
 
-    def derivesFrom(self, otherClass:CsClass)->bool:
+    def derivesFrom(self, otherClass:CsClass) -> bool:
         '''! Returns `True` if this class is or derives from `otherClass` '''
         assert(not self.m_antiLoopFlag) # Looping inheritance!
         if self==otherClass:return True
@@ -140,7 +140,7 @@ class CsClass(CsClassBase):
             return ret
         return False
     
-    def findDerivedClasses(self)->list[CsClass]:
+    def findDerivedClasses(self) -> list[CsClass]:
         '''! Finds all the classes that derive from this one '''
         listOfDerivedClasses:list[CsClass] = list()
         for csClass in CS_CLASSES:
@@ -149,12 +149,12 @@ class CsClass(CsClassBase):
         return listOfDerivedClasses
 
 
-    def addClassElement(self, classElement:CsClassElement):
+    def addClassElement(self, classElement:CsClassElement) -> None:
         self.m_classElements.append(classElement)
         classElement.m_owningScope = self
 
 
-    def generateCsBody(self, writer:Writer, config:CsConfig)->None:
+    def generateCsBody(self, writer:Writer, config:CsConfig) -> None:
         self.m_comment.write(writer, config)
         self.m_attributesClass.write(writer, config)
         writer.write(f"{self.m_classVisibility.toStr()} class {self.getCsUnqualifiedName()}")
@@ -180,7 +180,7 @@ class CsClass(CsClassBase):
 
         # Then generate all properties/fields and methods grouped by private, protected and public
         for visibility in visibilitySequence:
-            elements:list[CsClassElement] = list()
+            elements = list()
             elements += self.__select(lambda elem: isinstance(elem,CsField) and not elem.m_fieldConst, visibility=visibility)
             elements += self.__select(lambda elem: isinstance(elem,CsMethod) or isinstance(elem,CsClassCustom), visibility=visibility)
             self.__generateElements(writer=writer, config=config, elements=elements)
@@ -190,7 +190,7 @@ class CsClass(CsClassBase):
         writer.writeNL('}')
 
 
-    def getClassVirtuality(self)->CsClassVirtuality:
+    def getClassVirtuality(self) -> CsClassVirtuality:
         '''! Calculates the class virtuality accorting to what has been declared ant the methods '''
         thisClassVirtuality:CsClassVirtuality = self.m_classVirtuality
         baseClassVirtuality:CsClassVirtuality = CsClassVirtuality.CLASS_NORMAL
@@ -219,18 +219,18 @@ class CsClass(CsClassBase):
         return elements
 
 
-    def __generateElements(self, writer:Writer, config:CsConfig, elements:list[CsClassElement]):
+    def __generateElements(self, writer:Writer, config:CsConfig, elements:list[CsClassElement]) -> None:
         if not elements: return
         for element in elements: 
             element.generateCsBody(writer=writer, config=config)
 
-    def setupModuleConfig(self, moduleConfig:CsModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CsModuleConfig) -> None:
         '''! Operate on the accessible parts of the module to add usings, header parts and so on '''
         super().setupModuleConfig(moduleConfig=moduleConfig)
         for elem in self.m_classElements:
             elem.setupModuleConfig(moduleConfig=moduleConfig)
 
-    def getDefaultConstructor(self, createIfMissing:bool=False)->Optional[CsMethod]:
+    def getDefaultConstructor(self, createIfMissing:bool=False) -> Optional[CsMethod]:
         for elem in self.m_classElements:
             if isinstance(elem, CsMethod):
                 if elem.m_methodType==CsMethodType.CONSTRUCTOR and len(elem.m_params)==0:

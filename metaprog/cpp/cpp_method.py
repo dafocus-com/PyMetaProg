@@ -15,20 +15,21 @@
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
 from .cpp_class_element import CppClassElement
-from .cpp_labels import *
+from .cpp_labels import CppVisibility, CppStaticity, CppInline, CppVirtuality
 from .cpp_param import CppParam
 from .cpp_module_config import CppModuleConfig
 from .cpp_namescope import CppNameScope
 from .cpp_config import CppConfig
 from .cpp_includes import CppIncludesAny
-from .cpp_template import *
-from .cpp_type import *
+from .cpp_template import CppTemplate, CppTemplateArguments
+from .cpp_type import CppType, CppTypeAny, CppTypeFactory
 from .cpp_class_base import CppClassBase
 from .cpp_initializer import CppInitializerSet, CppInitializerAny
 from metaprog.util.writer import Writer
 from metaprog.util.writable_set import WritableSet, WritableSetAny
-from metaprog.util.comment import *
+from metaprog.util.comment import Comment, CommentAny
 from metaprog.util.extensions import ExtensionsAny
+from enum import Enum
 
 class CppMethodType(Enum):
     NORMAL           = 1
@@ -54,6 +55,7 @@ class CppMethod(CppClassElement):
             cppIncludes:CppIncludesAny = None,
             extensions:ExtensionsAny = None,
             methodTemplate:CppTemplateArguments = list(), # Specify the template parameters this method must have
+            noexcept:bool = False,
         ):
         super().__init__(visibility=visibility, hppIncludes=hppIncludes, cppIncludes=cppIncludes, extensions=extensions)
         self.m_methodName:str = methodName
@@ -73,6 +75,8 @@ class CppMethod(CppClassElement):
         self.m_initializers:CppInitializerSet = CppInitializerSet(initializers=initializers)
         self.m_baseClassInitializers:list[str] = baseClassInitializers
         self.m_methodTemplate:CppTemplate = CppTemplate(templateArguments=methodTemplate)
+        self.m_noexcept:bool = noexcept
+
 
     def needsInline(self)->bool:
         return self.m_inline == CppInline.INLINE_OUTSIDE
@@ -80,7 +84,7 @@ class CppMethod(CppClassElement):
     def needsCpp(self)->bool:
         return self.m_inline == CppInline.OUT_OF_LINE
 
-    def setupModuleConfig(self, moduleConfig:CppModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CppModuleConfig) -> None:
         '''! Operate on the accessible parts of the module to add includes, header parts and so on '''
         super().setupModuleConfig(moduleConfig=moduleConfig)
         self.m_returnType.setupModuleConfig(moduleConfig=moduleConfig)
@@ -91,12 +95,12 @@ class CppMethod(CppClassElement):
         self.m_methodTemplate.addToComment(self.m_comment)
         
 
-    def generateHppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateHppBody(self, writer:Writer, config:CppConfig) -> None:
         self.m_comment.write(writer, config)
-        assert(self.m_methodType != CppMethodType.CONSTRUCTOR or (self.m_virtuality==CppVirtuality.NORMAL and self.m_staticity == CppStaticity.DYNAMIC))
+        assert(self.m_methodType != CppMethodType.CONSTRUCTOR or ((self.m_virtuality==CppVirtuality.NORMAL or self.m_virtuality==CppVirtuality.DELETED) and self.m_staticity == CppStaticity.DYNAMIC))
 
         self.m_methodTemplate.getTemplateDecl(writer=writer, config=config, withDefaults=True)
-        if self.m_virtuality!=CppVirtuality.NORMAL:
+        if self.m_virtuality!=CppVirtuality.NORMAL and self.m_virtuality!=CppVirtuality.DELETED:
             writer.writeRaw("virtual ")
         elif self.m_staticity == CppStaticity.STATIC:
             writer.writeRaw("static ")
@@ -107,18 +111,22 @@ class CppMethod(CppClassElement):
             writer.writeRaw(" override")
         elif self.m_virtuality == CppVirtuality.PURE_VIRTUAL:
             writer.writeRaw(" = 0;\n")
-        if self.m_inline == CppInline.INLINE_INSIDE:
-            self.__writeImpl(writer, config)
-        else:
-            writer.writeRaw(";\n")
+        elif self.m_virtuality == CppVirtuality.DELETED:
+            writer.writeRaw(" = delete;\n")
+
+        if self.m_virtuality != CppVirtuality.DELETED:
+            if self.m_inline == CppInline.INLINE_INSIDE:
+                self.__writeImpl(writer, config)
+            else:
+                writer.writeRaw(";\n")
 
 
-    def generateHppInline(self, writer:Writer, config:CppConfig)->None:
+    def generateHppInline(self, writer:Writer, config:CppConfig) -> None:
         '''! Generate the inline part of the C++ .hpp file, i.e. where the `inline` methods go '''
         if self.m_inline != CppInline.INLINE_OUTSIDE: return
         self.__externImpl(writer=writer, config=config, inline=True)
 
-    def generateCppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateCppBody(self, writer:Writer, config:CppConfig) -> None:
         '''! Generate the body part of the C++ .cpp file, i.e. where implementation of the methods go '''
         if self.m_inline != CppInline.OUT_OF_LINE: return
         self.__externImpl(writer=writer, config=config, inline=False)
@@ -133,19 +141,25 @@ class CppMethod(CppClassElement):
     def __proto(self, writer:Writer, config:CppConfig, withDefault:bool) -> None:
         '''! Return a basic prototype (method name, parameters, const) without the return value '''
         const:str = " const" if self.m_staticity==CppStaticity.DYNAMIC_CONST else ""
+        noexcept:str = " noexcept" if self.m_noexcept else ""
         writer.writeRaw(f'{self.__getMethodName()}(')
         self.__paramsDecl(writer=writer, config=config, withDefault=withDefault)
-        writer.writeRaw(f'){const}')
+        writer.writeRaw(f'){const}{noexcept}')
 
     def __externProto(self, writer:Writer, config:CppConfig) -> None:
         '''! Return a complete external prototype '''
         assert(self.m_owningScope is not None)
         assert(config.m_cppCurrentNameScope is None or isinstance(config.m_cppCurrentNameScope, CppNameScope))  # type: ignore
         cls:str = self.m_owningScope.getCppQualifiedName(config.m_cppCurrentNameScope) # TBD
+
+        returnNameScope:CppNameScope = config.m_cppCurrentNameScope if config.m_cppCurrentNameScope is not None else self.getCppClass()
+        
+
         #print(f'CLASS=[{self.m_owningScope.getCppQualifiedName(None)}] targetNameScope=[{targetNameScope.getCppQualifiedName(None)}]')
         if len(cls) > 0: cls += "::"
         if self.m_methodType == CppMethodType.NORMAL:
-            writer.writeRaw(f'{self.m_outOfClassReturnType.toString(self.getCppClass())} ')
+            #writer.writeRaw(f'{self.m_outOfClassReturnType.toString(containerClass=self.getCppClass())} ')
+            writer.writeRaw(f'{self.m_outOfClassReturnType.toString(containerClass=returnNameScope)} ')
         writer.writeRaw(f'{cls}')
         self.__proto(writer=writer, config=config, withDefault=False)
 
@@ -165,8 +179,8 @@ class CppMethod(CppClassElement):
         
     
     def __writeImpl(self, writer:Writer, config:CppConfig) -> None:
-        if self.m_virtuality == CppVirtuality.PURE_VIRTUAL: 
-            assert(self.m_code is None)
+        if (self.m_virtuality == CppVirtuality.PURE_VIRTUAL) or (self.m_virtuality == CppVirtuality.DELETED): 
+            assert(self.m_code.empty())
             return
         
         initializers:list[str] = list()

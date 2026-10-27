@@ -15,28 +15,28 @@
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
 from .cs_namescope import CsNameScope
-from .cs_labels import *
+from .cs_labels import CsVisibility
 from .cs_config import CsConfig
 from .cs_module_config import CsModuleConfig
-from .cs_usings import CsUsings, CsUsingsAny
+from .cs_includes import CsIncludes, CsIncludesAny
 from metaprog.util.writer import Writer
 from abc import ABC, abstractmethod
 from metaprog.util.extensions import Extensions, ExtensionsAny
 from typing import Optional
 from .cs_class_base import CsClassBase
-from metaprog.util.comment import *
+from metaprog.util.comment import Comment, CommentAny
 
 class CsClassElement(ABC):
     def __init__(
             self, 
             visibility:CsVisibility,
-            csUsings:CsUsingsAny,
+            csIncludes:CsIncludesAny,
             extensions:ExtensionsAny,
             brief:CommentAny=None,
         ):
         self.m_visibility = visibility
         self.m_owningScope:Optional[CsNameScope] = None
-        self.m_csUsings:CsUsings = CsUsings(usings=csUsings)
+        self.m_csIncludes:CsIncludes = CsIncludes(usings=csIncludes)
         self.m_extensions:Extensions = Extensions(extensions=extensions)
         self.m_comment:Comment = Comment(commentAny=brief)
 
@@ -44,13 +44,13 @@ class CsClassElement(ABC):
     def identify(self)->str:
         ...
 
-    def setupModuleConfig(self, moduleConfig:CsModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CsModuleConfig) -> None:
         '''! Operate on the accessible parts of the module to add includes, header parts and so on '''
-        moduleConfig.m_csUsings.merge(self.m_csUsings)
+        moduleConfig.m_csIncludes.merge(self.m_csIncludes)
 
     @abstractmethod
-    def generateCsBody(self, writer:Writer, config:CsConfig)->None:
-        '''! Generate the body part of the C++ .cs file, i.e. where implementation of the methods go '''
+    def generateCsBody(self, writer:Writer, config:CsConfig) -> None:
+        '''! Generate the body part of the C# .cs file, i.e. where implementation of the methods go '''
         ...
 
     def __str__(self)->str:

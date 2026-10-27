@@ -15,19 +15,23 @@
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
 from typing import Optional
-from metaprog.adt.adt_class import *
-from metaprog.adt.adt_type import *
-from metaprog.adt.adt_type_misc import *
-from metaprog.adt.adt_class_set import *
-from metaprog.cs.cs_class import *
-from metaprog.cs.cs_enum import *
+from metaprog.adt.adt_class import AdtClass
+from metaprog.adt.adt_constant import AdtConstant
+from metaprog.adt.adt_field import AdtField
+from metaprog.adt.adt_enum import AdtEnum
+from metaprog.adt.adt_type import AdtType
+from metaprog.adt.adt_type_misc import AdtTypeInteger, AdtTypeString, AdtTypeClass, AdtTypeVector, AdtTypeBool, AdtTypeEnum, AdtTypeMap, AdtTypeFloat
+from metaprog.adt.adt_class_set import AdtClassSet
+from metaprog.cs.cs_class import CsClass
+from metaprog.cs.cs_labels import CsClassVirtuality, CsVisibility
+from metaprog.cs.cs_enum import CsEnum, CsEnumEntry
 from metaprog.cs.cs_namescope_with_children import CsNameScopeWithChildren
-from metaprog.cs.cs_type import *
-from metaprog.cs.cs_field import *
-from metaprog.cs.cs_config import *
-from metaprog.cs.cs_constant import *
-from metaprog.cs_gen.cs_marshal_generator import *
-from metaprog.util.log import *
+from metaprog.cs.cs_type import CsType, CsTypeString, CsTypeSimple, CsTypeClass, CsTypeMap, CsTypeVector 
+from metaprog.cs.cs_field import CsField
+from metaprog.cs.cs_rvalue import CsRValueAny
+from metaprog.cs.cs_constant import CsConstant
+from metaprog.cs_gen.cs_marshal_generator import CS_MARSHAL_FIELD_NAME, CS_MARSHAL_CLASS_NAME, CS_MARSHAL_FIELD_ENABLE
+from metaprog.util.log import logError
 
 
 '''! This extension value can be added to the extensions of the `AdtClass`; must be a `CsNameScopeWithChildren` or deriveds  '''
@@ -52,17 +56,17 @@ Used in `AdtClass` to execute extra actions on the created `CsClass`, like addin
 It expects an instance of `CsAdtClassCustom` or a `list[CsAdtClassCustom]`. 
 It will call their methods 'customAction' after having created the C# class.
 '''
-CS_CUSTOM_CODE:str = "cs_custom_code"
+CS_CUSTOM_PROCESSING:str = "cs_custom_processing"
 
 '''! Used in `AdtField` with value type `string`; it is used as default value '''
 CS_FIELD_DEFAULT:str = "cs_field_default"
 
 class CsAdtClassCustom:
-    def customAction(self, adtClass:AdtClass, csClass:CsClass)->None:
+    def customAction(self, adtClass:AdtClass, csClass:CsClass) -> None:
         pass
 
 class CsAdtTypeCustom:
-    def customAction(self, adtType:AdtType, csType:CsType)->None:
+    def customAction(self, adtType:AdtType, csType:CsType) -> None:
         pass
 
 class CsFromAdt:
@@ -114,7 +118,7 @@ class CsFromAdt:
         return csClasses
 
     #=======================================================================================================
-    def __generateClass(self, adtClass:AdtClass):
+    def __generateClass(self, adtClass:AdtClass) -> None:
         if adtClass.m_className in self.m_classMap:
             logError(f"Dupe ADT class {adtClass.m_className}")
         
@@ -122,7 +126,7 @@ class CsFromAdt:
             assert(isinstance(adtClass.m_extensions[CS_NAMESCOPE], CsNameScopeWithChildren))
             nameScope:CsNameScopeWithChildren = adtClass.m_extensions[CS_NAMESCOPE]
         elif self.m_defaultNameScope is not None:
-            nameScope:CsNameScopeWithChildren = self.m_defaultNameScope
+            nameScope = self.m_defaultNameScope
         else:
             logError(f"No namescope defined for class {adtClass.m_className}")
             return
@@ -130,7 +134,7 @@ class CsFromAdt:
         if CS_NAME in adtClass.m_extensions:
             csClassName:str = adtClass.m_extensions[CS_NAME]
         else:
-            csClassName:str = adtClass.m_className
+            csClassName = adtClass.m_className
 
         csClass:CsClass = CsClass(
             className=csClassName,
@@ -149,7 +153,7 @@ class CsFromAdt:
             self.__generateField(adtField=adtField, csClass=csClass)
 
     #=======================================================================================================
-    def __generateEnum(self, adtEnum:AdtEnum):
+    def __generateEnum(self, adtEnum:AdtEnum) -> None:
         if adtEnum.m_enumName in self.m_enumMap:
             logError(f"Dupe ADT enum {adtEnum.m_enumName}")
 
@@ -157,7 +161,7 @@ class CsFromAdt:
             assert(isinstance(adtEnum.m_extensions[CS_NAMESCOPE], CsNameScopeWithChildren))
             nameScope:CsNameScopeWithChildren = adtEnum.m_extensions[CS_NAMESCOPE]
         elif self.m_defaultNameScope is not None:
-            nameScope:CsNameScopeWithChildren = self.m_defaultNameScope
+            nameScope = self.m_defaultNameScope
         else:
             logError(f"No namescope defined for enum {adtEnum.m_enumName}")
             return
@@ -165,7 +169,7 @@ class CsFromAdt:
         if CS_NAME in adtEnum.m_extensions:
             csEnumName:str = adtEnum.m_extensions[CS_NAME]
         else:
-            csEnumName:str = adtEnum.m_enumName
+            csEnumName = adtEnum.m_enumName
 
         csEnumEntries:list[CsEnumEntry] = list()
         for adtEnumEntry in adtEnum.m_enumEntries:
@@ -188,7 +192,7 @@ class CsFromAdt:
         nameScope.addChild(child=csEnum)
 
     #=======================================================================================================
-    def __generateConstant(self, adtConstant:AdtConstant):
+    def __generateConstant(self, adtConstant:AdtConstant) -> None:
         if adtConstant.m_constantName in self.m_constantMap:
             logError(f"Dupe ADT constant {adtConstant.m_constantName}")
 
@@ -196,7 +200,7 @@ class CsFromAdt:
             assert(isinstance(adtConstant.m_extensions[CS_NAMESCOPE], CsNameScopeWithChildren))
             nameScope:CsNameScopeWithChildren = adtConstant.m_extensions[CS_NAMESCOPE]
         elif self.m_defaultNameScope is not None:
-            nameScope:CsNameScopeWithChildren = self.m_defaultNameScope
+            nameScope = self.m_defaultNameScope
         else:
             logError(f"No namescope defined for constant {adtConstant.m_constantName}")
             return
@@ -204,7 +208,7 @@ class CsFromAdt:
         if CS_NAME in adtConstant.m_extensions:
             csConstantName:str = adtConstant.m_extensions[CS_NAME]
         else:
-            csConstantName:str = adtConstant.m_constantName
+            csConstantName = adtConstant.m_constantName
 
         csConstant:CsConstant = CsConstant(
             constantName=csConstantName,
@@ -218,7 +222,7 @@ class CsFromAdt:
         nameScope.addChild(child=csConstant)
     
     #=======================================================================================================
-    def __resolveInheritance(self, adtClass:AdtClass):
+    def __resolveInheritance(self, adtClass:AdtClass) -> None:
         if adtClass.m_baseClass is None: return
         if adtClass.m_baseClass.m_className not in self.m_classMap:
             logError(f"ADT class {adtClass.m_className} derives from unexisting class {adtClass.m_baseClass.m_className}")
@@ -229,11 +233,11 @@ class CsFromAdt:
         thisCsClass.m_baseClass = baseCsClass
 
     #=======================================================================================================
-    def __callCustomCode(self, adtClass:AdtClass):
+    def __callCustomCode(self, adtClass:AdtClass) -> None:
         assert(adtClass.m_className in self.m_classMap)
         csClass:CsClass = self.m_classMap[adtClass.m_className]
-        if CS_CUSTOM_CODE in adtClass.m_extensions:
-            customCode = adtClass.m_extensions[CS_CUSTOM_CODE]
+        if CS_CUSTOM_PROCESSING in adtClass.m_extensions:
+            customCode = adtClass.m_extensions[CS_CUSTOM_PROCESSING]
             if isinstance(customCode, CsAdtClassCustom):
                 customCode.customAction(adtClass=adtClass, csClass=csClass)
             elif isinstance(customCode, list):
@@ -242,12 +246,12 @@ class CsFromAdt:
                     customAction.customAction(adtClass=adtClass, csClass=csClass)
 
     #=======================================================================================================
-    def __generateField(self, adtField:AdtField, csClass:CsClass):
+    def __generateField(self, adtField:AdtField, csClass:CsClass) -> None:
         if CS_NAME in adtField.m_extensions:
             assert(isinstance(adtField.m_extensions[CS_NAME], str))
             csFieldName:str = adtField.m_extensions[CS_NAME]
         else:
-            csFieldName:str = adtField.m_fieldName
+            csFieldName = adtField.m_fieldName
 
         # First, privilege an explicit CS_FIELD_DEFAULT value
         extensionDefinedDefault:CsRValueAny = adtField.m_extensions.getValueOrNone(CS_FIELD_DEFAULT)
@@ -275,7 +279,7 @@ class CsFromAdt:
         csField.m_extensions.merge(adtField.m_extensions)
 
     #=======================================================================================================
-    def __getCsType2(self, adtType:AdtType, adtDefault:Optional[str]=None)->CsType:
+    def __getCsType2(self, adtType:AdtType, adtDefault:Optional[str]=None) -> CsType:
 
         if isinstance(adtType, AdtTypeInteger):
             typeId:str = f'{"i" if adtType.m_signed else "u"}{adtType.m_bits}'
@@ -291,7 +295,7 @@ class CsFromAdt:
             return CsTypeString(defaultValue=adtDefault)
 
         if isinstance(adtType, AdtTypeBool):
-            csTypeSimple:CsTypeSimple = CsTypeSimple(simpleType="bool")
+            csTypeSimple = CsTypeSimple(simpleType="bool")
             if adtDefault is not None:
                 if adtDefault.lower() == 'true':
                     csTypeSimple.m_defaultValue = 'true'
@@ -299,6 +303,10 @@ class CsFromAdt:
                     csTypeSimple.m_defaultValue = 'false'
                 else:
                     logError(f"Invalid boolean '{adtDefault}'")
+            return csTypeSimple
+
+        if isinstance(adtType, AdtTypeFloat):
+            csTypeSimple = CsTypeSimple(simpleType="double")
             return csTypeSimple
 
         if isinstance(adtType, AdtTypeEnum):
@@ -310,7 +318,7 @@ class CsFromAdt:
             if adtType.m_adtClass.m_className in self.m_classMap:
                 return CsTypeClass(csClass=self.m_classMap[adtType.m_adtClass.m_className])
             else:
-                logError(f"ADT type reference an ADT class named '{adtType.m_adtClass.m_className}' which has not been generated in C++")
+                logError(f"ADT type reference an ADT class named '{adtType.m_adtClass.m_className}' which has not been generated in C#")
                 return CsTypeSimple(simpleType="void")
 
         if isinstance(adtType, AdtTypeVector):
@@ -326,13 +334,13 @@ class CsFromAdt:
     
 
     #=======================================================================================================
-    def __getCsType(self, adtType:AdtType, adtDefault:Optional[str]=None)->CsType:
+    def __getCsType(self, adtType:AdtType, adtDefault:Optional[str]=None) -> CsType:
         csType:CsType = self.__getCsType2(adtType=adtType, adtDefault=adtDefault)
         csType.m_extensions.merge(adtType.m_extensions)
 
-        if CS_CUSTOM_CODE in adtType.m_extensions:
-            assert(isinstance(adtType.m_extensions[CS_CUSTOM_CODE], CsAdtTypeCustom))
-            adtType.m_extensions[CS_CUSTOM_CODE].customAction(adtType=adtType, csType=csType)
+        if CS_CUSTOM_PROCESSING in adtType.m_extensions:
+            assert(isinstance(adtType.m_extensions[CS_CUSTOM_PROCESSING], CsAdtTypeCustom))
+            adtType.m_extensions[CS_CUSTOM_PROCESSING].customAction(adtType=adtType, csType=csType)
 
         return csType
 

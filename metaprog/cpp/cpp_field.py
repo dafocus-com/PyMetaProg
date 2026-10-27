@@ -14,24 +14,28 @@
 #
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
-from .cpp_class_element import CppClassElement
-from .cpp_labels import *
-from .cpp_type import *
-from .cpp_config import CppConfig
 from .cpp_class_base import CppClassBase
+from .cpp_class_element import CppClassElement
+from .cpp_config import CppConfig
+from .cpp_includes import CppIncludesAny
+from .cpp_labels import CppVisibility, CppStaticity
 from .cpp_method import CppMethod, CppMethodType
+from .cpp_module_config import CppModuleConfig
+from .cpp_namescope import CppNameScope
 from .cpp_param import CppParam
-from .cpp_rvalue import CppRValueContainer, CppRValueAny
 from .cpp_rvalue import CppRValue
-from metaprog.util.writer import Writer
-from metaprog.util.comment import *
+from .cpp_rvalue import CppRValueContainer, CppRValueAny
+from .cpp_type import CppTypeAny, CppType, CppTypeFactory
+from metaprog.util.comment import Comment, CommentAny
 from metaprog.util.extensions import ExtensionsAny
-from metaprog.util.log import *
+from metaprog.util.log import logError
+from metaprog.util.writer import Writer
+from typing import Optional
 
 
 # Key to be used in the CppField "extension" dictionary to enable the generation of the
 # get and set methods. If set, the field is tagged as protected.
-CPP_FIELD_GETSET="cpp_field_getset"   # -> True or False
+CPP_FIELD_GETSET:str = "cpp_field_getset"   # -> True or False
 
 
 
@@ -61,7 +65,7 @@ class CppField(CppClassElement, CppRValue):
         if self.m_adtFieldName is not None: return self.m_adtFieldName
         return self.m_fieldName
 
-    def setupModuleConfig(self, moduleConfig:CppModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CppModuleConfig) -> None:
         '''! Operate on the accessible parts of the module to add includes, header parts and so on '''
         super().setupModuleConfig(moduleConfig=moduleConfig)
         self.m_fieldType.setupModuleConfig(moduleConfig=moduleConfig)
@@ -72,7 +76,7 @@ class CppField(CppClassElement, CppRValue):
     def needsCpp(self)->bool:
         return False
 
-    def generateHppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateHppBody(self, writer:Writer, config:CppConfig) -> None:
         self.m_comment.write(writer, config)
         if self.m_fieldConst:
             writer.writeRaw('static constexpr ')
@@ -99,17 +103,17 @@ class CppField(CppClassElement, CppRValue):
             return self.m_fieldName
         return self.getCppClass().getCppQualifiedName(otherScope=otherScope)+"::"+self.m_fieldName
 
-    def generateValue(self, writer:Writer, config:CppConfig, otherScope:Optional[CppNameScope]=None)->None:
+    def generateValue(self, writer:Writer, config:CppConfig, otherScope:Optional[CppNameScope]=None) -> None:
         '''! Generate the R-value text '''
         if not self.m_fieldConst:
             logError(f"Can not use non const field {self.m_fieldName} as a const R-value")
             return
         writer.writeRaw(self.getCppQualifiedName(otherScope=otherScope))
 
-    def generateHppInline(self, writer:Writer, config:CppConfig)->None:
+    def generateHppInline(self, writer:Writer, config:CppConfig) -> None:
         pass
 
-    def generateCppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateCppBody(self, writer:Writer, config:CppConfig) -> None:
         pass
 
     def identify(self)->str:
@@ -119,7 +123,7 @@ class CppField(CppClassElement, CppRValue):
         qualifiedName += self.m_fieldName
         return qualifiedName
 
-    def waterfallAdditionReset(self)->None:
+    def waterfallAdditionReset(self) -> None:
         '''! Reset the waterfall addition.'''
         self.m_waterfallDone = False
 
@@ -136,7 +140,7 @@ class CppField(CppClassElement, CppRValue):
             somethingChanged = True
         return somethingChanged
 
-    def _generateGetSet(self, config:CppConfig):
+    def _generateGetSet(self, config:CppConfig) -> None:
         assert(self.m_owningScope is not None)
         assert(isinstance(self.m_owningScope, CppClassBase))
 

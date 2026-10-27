@@ -21,9 +21,9 @@ from .cpp_type import CppTypeAny, CppType, CppTypeSimple, CppTypeFactory
 from .cpp_config import CppConfig
 from .cpp_module_config import CppModuleConfig
 from metaprog.util.writer import Writer
-from metaprog.util.extensions import *
-from metaprog.util.comment import *
-from metaprog.util.log import *
+from metaprog.util.extensions import ExtensionsAny
+from metaprog.util.comment import Comment, CommentAny
+from metaprog.util.log import logError
 
 class CppEnum(CppEnumBase):
     def __init__(
@@ -41,7 +41,7 @@ class CppEnum(CppEnumBase):
         self.m_comment:Comment = Comment(commentAny=brief)
         self.m_hppIncludes.add('iostream')
 
-    def setupModuleConfig(self, moduleConfig:CppModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CppModuleConfig) -> None:
         super().setupModuleConfig(moduleConfig=moduleConfig)
         defaultEntries:int = 0
         for enumEntry in self.m_enumEntries:
@@ -53,7 +53,7 @@ class CppEnum(CppEnumBase):
             logError(f"Too many default entries ({defaultEntries}) for enum {self.getCppQualifiedName()}")
 
 
-    def generateHppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateHppBody(self, writer:Writer, config:CppConfig) -> None:
         self.m_comment.write(writer, config)
         writer.writeNL(f"enum class {self.getCppUnqualifiedName()}: {self.m_enumType.toString(containerClass=self)} {{")
         writer.incIndent()

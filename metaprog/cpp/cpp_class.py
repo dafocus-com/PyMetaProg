@@ -17,7 +17,7 @@
 from __future__ import annotations
 from .cpp_class_base import CppClassBase
 from .cpp_class_element import CppClassElement
-from .cpp_labels import *
+from .cpp_labels import CppClassVirtuality, CppVisibility, CppVirtuality, CppInline
 from .cpp_includes import CppIncludesAny
 from .cpp_config import CppConfig
 from .cpp_method import CppMethod, CppMethodType
@@ -26,7 +26,7 @@ from .cpp_module_config import CppModuleConfig
 from .cpp_class_custom import CppClassCustom
 from metaprog.util.writer import Writer
 from metaprog.util.writable_set import WritableSet
-from metaprog.util.comment import *
+from metaprog.util.comment import Comment, CommentAny
 from typing import Optional, Callable, Union
 from metaprog.util.extensions import ExtensionsAny
 
@@ -125,7 +125,7 @@ class CppClass(CppClassBase):
         if self.m_baseClass is not None and isinstance(self.m_baseClass, CppClass):
             foundFields:list[CppField] = self.m_baseClass.findMultipleFields(ext=ext)
         else:
-            foundFields:list[CppField] = list()
+            foundFields = list()
         
         for fld in self.m_classElements:
             if isinstance(fld, CppField):
@@ -133,7 +133,7 @@ class CppClass(CppClassBase):
                     foundFields.append(fld)
         return foundFields
 
-    def derivesFrom(self, otherClass:CppClass)->bool:
+    def derivesFrom(self, otherClass:CppClass) -> bool:
         '''! Returns `True` if this class is or derives from `otherClass` '''
         assert(not self.m_antiLoopFlag) # Looping inheritance!
         if self==otherClass:return True
@@ -144,12 +144,12 @@ class CppClass(CppClassBase):
             return ret
         return False
     
-    def getTopmostBaseClass(self)->CppClass:
+    def getTopmostBaseClass(self) -> CppClass:
         if self.m_baseClass is not None and isinstance(self.m_baseClass, CppClass):
             return self.m_baseClass.getTopmostBaseClass()
         return self
 
-    def findDerivedClasses(self)->list[CppClass]:
+    def findDerivedClasses(self) -> list[CppClass]:
         '''! Finds all the classes that derive from this one '''
         listOfDerivedClasses:list[CppClass] = list()
         for cppClass in CPP_CLASSES:
@@ -158,13 +158,13 @@ class CppClass(CppClassBase):
         return listOfDerivedClasses
 
 
-    def addClassElement(self, classElement:CppClassElement)->CppClassElement:
+    def addClassElement(self, classElement:CppClassElement) -> CppClassElement:
         self.m_classElements.append(classElement)
         classElement.m_owningScope = self
         return classElement
         # print(f"[DEBUG] Class {self} add element {classElement}")
 
-    def generateHppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateHppBody(self, writer:Writer, config:CppConfig) -> None:
         self._enterNameScope(config=config)
         self.m_comment.write(writer, config)
         writer.write(f"class {self.getCppUnqualifiedName()}")
@@ -183,6 +183,13 @@ class CppClass(CppClassBase):
             CppVisibility.PUBLIC,
         ]
 
+        if self.m_children:
+            for child in self.m_children:
+                writer.writeNL(child.m_visibilityWhenInClass.toStr()+":")
+                writer.incIndent()
+                child.generateHppBody(writer=writer, config=config)
+                writer.decIndent()
+
         # First generate all constants (private, protected and public)
         for visibility in visibilitySequence:
             elements:list[CppClassElement] = self.__select(lambda elem: isinstance(elem,CppField) and elem.m_fieldConst, visibility=visibility)
@@ -190,14 +197,14 @@ class CppClass(CppClassBase):
 
         # Then generate all fields and methods grouped by private, protected and public
         for visibility in visibilitySequence:
-            elements:list[CppClassElement] = list()
+            elements = list()
             elements += self.__select(lambda elem: isinstance(elem,CppField) and not elem.m_fieldConst, visibility=visibility)
             elements += self.__select(lambda elem: isinstance(elem,CppMethod), visibility=visibility)
             self.__generateElements(writer=writer, config=config, elements=elements)
 
         # First generate all custom code (private, protected and public)
         for visibility in visibilitySequence:
-            elements:list[CppClassElement] = self.__select(lambda elem: isinstance(elem,CppClassCustom), visibility=visibility)
+            elements = self.__select(lambda elem: isinstance(elem,CppClassCustom), visibility=visibility)
             self.__generateElements(writer=writer, config=config, elements=elements)
 
         self.m_endBlock.write(writer, config)
@@ -206,24 +213,20 @@ class CppClass(CppClassBase):
         self.m_postEndBlock.write(writer, config)
         self._exitNameScope(config=config)
 
-    def generateHppInline(self, writer:Writer, config:CppConfig)->None:
-        self._enterNameScope(config=config)
+    def generateHppInline(self, writer:Writer, config:CppConfig) -> None:
         super().generateHppInline(writer=writer, config=config)
         self.m_inlineBlock.write(writer=writer, config=config)
         for elem in self.m_classElements:
             elem.generateHppInline(writer=writer, config=config)
-        self._exitNameScope(config=config)
 
-    def generateCppBody(self, writer:Writer, config:CppConfig)->None:
-        self._enterNameScope(config=config)
+    def generateCppBody(self, writer:Writer, config:CppConfig) -> None:
         super().generateCppBody(writer, config)
         for elem in self.m_classElements:
             elem.generateCppBody(writer=writer, config=config)
-        self._exitNameScope(config=config)
 
 
     def getClassVirtuality(self)->CppClassVirtuality:
-        '''! Calculates the class virtuality accorting to what has been declared and the methods '''
+        '''! Calculates the class virtuality according to what has been declared and the methods '''
         thisClassVirtuality:CppClassVirtuality = self.m_classVirtuality
         baseClassVirtuality:CppClassVirtuality = CppClassVirtuality.CLASS_NORMAL
         if self.m_baseClass is not None and isinstance(self.m_baseClass, CppClass):
@@ -242,7 +245,7 @@ class CppClass(CppClassBase):
                     thisClassVirtuality = CppClassVirtuality.CLASS_VIRTUAL
         return thisClassVirtuality
     
-    def __calcChildrenOrder(self):
+    def __calcChildrenOrder(self) -> None:
         order:int = 0
         for elem in self.m_classElements:
             order += 1
@@ -256,7 +259,7 @@ class CppClass(CppClassBase):
         return elements
 
 
-    def __generateElements(self, writer:Writer, config:CppConfig, elements:list[CppClassElement]):
+    def __generateElements(self, writer:Writer, config:CppConfig, elements:list[CppClassElement]) -> None:
         if not elements: return
         currVisibility:Optional[CppVisibility] = None
 
@@ -270,20 +273,21 @@ class CppClass(CppClassBase):
             element.generateHppBody(writer=writer, config=config)
         writer.decIndent()
 
-    def needsCpp(self)->bool:
+    def needsCpp(self) -> bool:
         if super().needsCpp(): return True
         for elem in self.m_classElements:
             if elem.needsCpp(): return True
         return False
 
-    def needsInline(self)->bool:
+    def needsInline(self) -> bool:
         if super().needsInline(): return True
         for elem in self.m_classElements:
             if elem.needsInline(): return True
         return False
 
-    def setupModuleConfig(self, moduleConfig:CppModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CppModuleConfig) -> None:
         '''! Operate on the accessible parts of the module to add includes, header parts and so on '''
+        self.__addVirtualDestructorIfMissing()
         super().setupModuleConfig(moduleConfig=moduleConfig)
         for elem in self.m_classElements:
             elem.setupModuleConfig(moduleConfig=moduleConfig)
@@ -300,15 +304,95 @@ class CppClass(CppClassBase):
         
         self.__calcChildrenOrder()
 
-    def getDefaultConstructor(self, createIfMissing:bool=False)->Optional[CppMethod]:
+    def getDefaultConstructor(self, createIfMissing:bool=False) -> Optional[CppMethod]:
         for elem in self.m_classElements:
             if isinstance(elem, CppMethod):
                 if elem.m_methodType==CppMethodType.CONSTRUCTOR and len(elem.m_params)==0:
                     return elem
         if createIfMissing:
-            self.addClassElement(CppMethod(
+            cppMethod:CppMethod = CppMethod(
                 methodType=CppMethodType.CONSTRUCTOR,
                 brief="Constructor",
                 visibility=CppVisibility.PUBLIC,
-            ))
+            )
+            self.addClassElement(cppMethod)
+            return cppMethod
         return None
+
+    def getDestructor(self, createIfMissing:bool=False) -> Optional[CppMethod]:
+        for elem in self.m_classElements:
+            if isinstance(elem, CppMethod):
+                if elem.m_methodType==CppMethodType.DESTRUCTOR:
+                    return elem
+        if createIfMissing:
+            cppMethod:CppMethod = CppMethod(
+                methodType=CppMethodType.DESTRUCTOR,
+                brief="Destructor",
+                visibility=CppVisibility.PUBLIC,
+            )
+            self.addClassElement(cppMethod)
+            return cppMethod
+        return None
+
+    def genDeletedCopyConstructor(self) -> None:
+        '''! Creates a `= delete` copy constructor '''
+        from metaprog.cpp.cpp_param import CppParam
+        from metaprog.cpp.cpp_type import CppTypeClass
+
+        self.addClassElement(
+            CppMethod(
+                methodType = CppMethodType.CONSTRUCTOR,
+                brief='Copy constructor',
+                inline=CppInline.NOT_IMPLEMENTED,
+                visibility=CppVisibility.PROTECTED,
+                code=None,
+                virtuality=CppVirtuality.DELETED,
+                params=[
+                    CppParam(
+                        paramName='other',
+                        paramType=CppTypeClass(cppClass=self, reference=True, const=True),
+                        mayBeUnused=True,
+                    ),
+                ],
+            )
+        )
+
+    def genDeletedCopyAssignmentOperator(self) -> None:
+        '''! Creates a `= delete` operator=  '''
+        from metaprog.cpp.cpp_param import CppParam
+        from metaprog.cpp.cpp_type import CppTypeClass
+
+        self.addClassElement(
+            CppMethod(
+                methodType = CppMethodType.NORMAL,
+                methodName = "operator=",
+                brief='Copy assignment operator',
+                inline=CppInline.NOT_IMPLEMENTED,
+                visibility=CppVisibility.PROTECTED,
+                code=None,
+                virtuality=CppVirtuality.DELETED,
+                returnType=CppTypeClass(cppClass=self, reference=True, const=False),
+                params=[
+                    CppParam(
+                        paramName='other',
+                        paramType=CppTypeClass(cppClass=self, reference=True, const=True),
+                        mayBeUnused=True,
+                    ),
+                ],
+            )
+        )
+
+
+    def __addVirtualDestructorIfMissing(self) -> None:
+        '''! Verifies if the conditions for adding a virtual destructor are met '''
+        cppClassVirtuality:CppClassVirtuality = self.getClassVirtuality()
+
+        # Class is by no mean virtual, 
+        if cppClassVirtuality == CppClassVirtuality.CLASS_NORMAL:
+            return
+
+        destructor:Optional[CppMethod] = self.getDestructor(createIfMissing=True)
+        assert(destructor is not None)
+        if destructor.m_virtuality != CppVirtuality.VIRTUAL:
+            destructor.m_virtuality = CppVirtuality.VIRTUAL
+            print(f"Making destructor virtual on C++ class {self.getCppQualifiedName()}")

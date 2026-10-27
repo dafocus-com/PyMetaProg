@@ -40,7 +40,7 @@ class AdtClassSet:
         self.m_constants.append(adtConstant)
         return adtConstant
 
-    def merge(self, adtClassSet:AdtClassSet)->None:
+    def merge(self, adtClassSet:AdtClassSet) -> None:
         for adtClass in adtClassSet.m_classes:
             self.appendClass(adtClass=adtClass)
 

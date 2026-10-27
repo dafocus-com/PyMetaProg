@@ -29,7 +29,7 @@ class CsUsing(Writable):
         '''
         self.m_usingName:str = usingName
 
-    def write(self, writer:Writer, config:Config)->None:
+    def write(self, writer:Writer, config:Config) -> None:
         writer.writeRaw(f'using {self.m_usingName};\n')
 
 class CsDirective(Writable):
@@ -40,7 +40,7 @@ class CsDirective(Writable):
         '''
         self.m_directiveName:str = directiveName
 
-    def write(self, writer:Writer, config:Config)->None:
+    def write(self, writer:Writer, config:Config) -> None:
         writer.writeRaw(f'{self.m_directiveName}\n')
 
 CsUsingsAny:TypeAlias = Optional[list[Union[str,CsUsing]]]
@@ -62,41 +62,41 @@ class CsUsings(Writable):
             for directive in directives:
                 self.addDirective(directive=directive)
 
-    def add(self, using:str|CsUsing):
+    def add(self, using:str|CsUsing) -> None:
         '''! Add an using
         @param usingName   Name of the file to be added with using
         '''
         if isinstance(using, CsUsing):
             usingName:str = using.m_usingName
         else:
-            usingName:str = using
+            usingName = using
         for using in self.m_usings:
             if using.m_usingName == usingName:
                 return
         self.m_usings.append(CsUsing(usingName=usingName))
 
-    def addDirective(self, directive:str|CsDirective):
+    def addDirective(self, directive:str|CsDirective) -> None:
         '''! Add a directive
         @param directiveName   Text of the directive "#..."
         '''
         if isinstance(directive, CsDirective):
             directiveName:str = directive.m_directiveName
         else:
-            directiveName:str = directive
+            directiveName = directive
         for directive in self.m_directives:
             if directive.m_directiveName == directiveName:
                 return
         self.m_directives.append(CsDirective(directiveName=directiveName))
 
-    def merge(self, other:CsUsings):
+    def merge(self, other:CsUsings) -> None:
         for using in other.m_usings:
             self.add(using=using.m_usingName)
         for directive in other.m_directives:
             self.addDirective(directive=directive.m_directiveName)
 
-    def write(self, writer:Writer, config:Config)->None:
+    def write(self, writer:Writer, config:Config) -> None:
         assert(isinstance(config, CsConfig))
         for using in self.m_usings:
             using.write(writer, config)
         for directive in self.m_directives:
-            directive.write(writer, config)            
+            directive.write(writer, config)

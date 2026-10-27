@@ -22,6 +22,7 @@ from typing import Optional
 from metaprog.util.writer import Writer
 from .cpp_config import CppConfig
 from metaprog.util.extensions import ExtensionsAny
+from .cpp_labels import CppVisibility
 
 class CppNameScope(CppGenerable):
     '''! Objects that have a name scope like namespaces and classes '''
@@ -32,15 +33,21 @@ class CppNameScope(CppGenerable):
             cppIncludes:CppIncludesAny,
             extensions:ExtensionsAny,
         ) -> None:
+        from .cpp_forward_decls import CppForwardDecls
         super().__init__(hppIncludes=hppIncludes, cppIncludes=cppIncludes, extensions=extensions)
         self.m_nameScope:str = nameScope
         self.__prevNamescope:Optional[CppNameScope] = None
+        self.m_forward_decls:CppForwardDecls = CppForwardDecls(homeNameScope=self)
 
-    def _enterNameScope(self, config:CppConfig)->None:
+        # This field is used when the child is inside a class to indicate its visibility
+        # For example, when creating a class inside a class
+        self.m_visibilityWhenInClass:CppVisibility = CppVisibility.PUBLIC
+
+    def _enterNameScope(self, config:CppConfig) -> None:
         self.__prevNamescope = config.m_cppCurrentNameScope # type: ignore
         config.m_cppCurrentNameScope = self
 
-    def _exitNameScope(self, config:CppConfig)->None:
+    def _exitNameScope(self, config:CppConfig) -> None:
         config.m_cppCurrentNameScope = self.__prevNamescope
         self.__prevNamescope = None
 
@@ -87,7 +94,7 @@ class CppNameScope(CppGenerable):
         '''! Returns the unqualified C++ name '''
         return self.m_nameScope
 
-    def addChild(self, child:CppNameScope)->None:
+    def addChild(self, child:CppNameScope) -> None:
         assert(child.m_parent is None)
 
     def needsCpp(self)->bool:
@@ -96,14 +103,15 @@ class CppNameScope(CppGenerable):
     def needsInline(self)->bool:
         return False
 
-    def setupModuleConfig(self, moduleConfig:CppModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CppModuleConfig) -> None:
         super().setupModuleConfig(moduleConfig=moduleConfig)
 
-    def generateHppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateHppBody(self, writer:Writer, config:CppConfig) -> None:
+        #writer.writeNL(f"/* BEGIN OF {self.m_nameScope} */")
+        self.m_forward_decls.write(writer=writer, config=config)
+
+    def generateHppInline(self, writer:Writer, config:CppConfig) -> None:
         pass
 
-    def generateHppInline(self, writer:Writer, config:CppConfig)->None:
-        pass
-
-    def generateCppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateCppBody(self, writer:Writer, config:CppConfig) -> None:
         pass

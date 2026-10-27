@@ -16,12 +16,12 @@
 
 from __future__ import annotations
 from .cs_enum_base import CsEnumBase, CsEnumEntry
-from .cs_usings import CsUsingsAny
+from .cs_includes import CsIncludesAny
 from .cs_type import CsTypeAny, CsType, CsTypeSimple, CsTypeFactory
 from .cs_config import CsConfig
 from metaprog.util.writer import Writer
-from metaprog.util.extensions import *
-from metaprog.util.comment import *
+from metaprog.util.extensions import ExtensionsAny
+from metaprog.util.comment import CommentAny
 
 class CsEnum(CsEnumBase):
     def __init__(
@@ -29,14 +29,14 @@ class CsEnum(CsEnumBase):
             enumClassName:str,
             enumEntries:list[CsEnumEntry] = list(),
             enumType:CsTypeAny=CsTypeSimple(simpleType="uint"),
-            csUsings:CsUsingsAny=None,
+            csIncludes:CsIncludesAny=None,
             extensions:ExtensionsAny=None,
             brief:CommentAny=None,
         ):
-        super().__init__(enumClassName=enumClassName, csUsings=csUsings, extensions=extensions, enumEntries=enumEntries, brief=brief)
+        super().__init__(enumClassName=enumClassName, csIncludes=csIncludes, extensions=extensions, enumEntries=enumEntries, brief=brief)
         self.m_enumType:CsType = CsTypeFactory(enumType)
 
-    def generateCsBody(self, writer:Writer, config:CsConfig)->None:
+    def generateCsBody(self, writer:Writer, config:CsConfig) -> None:
         self.m_comment.write(writer, config)
         writer.writeNL(f"{self.m_visibility.toStr()} enum {self.getCsUnqualifiedName()}: {self.m_enumType.toString(containerClass=self)} {{")
         writer.incIndent()

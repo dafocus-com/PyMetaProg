@@ -19,39 +19,43 @@
 '''
 from metaprog.cpp.cpp_class import CppClass
 from metaprog.cpp.cpp_field import CppField
-from metaprog.cpp.cpp_method import *
-from metaprog.cpp.cpp_labels import *
-from metaprog.util.log import *
-from metaprog.util.config import *
-from .cpp_generator_base import *
+from metaprog.cpp.cpp_enum_base import CppEnumBase
+from metaprog.cpp.cpp_labels import CppClassVirtuality, CppVirtuality, CppInline, CppStaticity, CppVisibility
+from metaprog.cpp.cpp_method import CppMethod
+from metaprog.cpp.cpp_param import CppParam
+from metaprog.cpp.cpp_type import CppType, CppTypeSharedPtr, CppTypeClass, CppTypeString, CppTypeBinary, CppTypeVector, CppTypeMap
+from metaprog.util.log import logError
+from metaprog.util.config import env
+from metaprog.util.writable_set import assertIsWritableSetAny, WritableSet
+from .cpp_generator_base import CppGeneratorBase
 
-PRINT_GENERATED="print_generated" # -> bool, created and written by this module to mark that has been processed
+CPP_PRINT_GENERATED:str = "cpp_print_generated" # -> bool, created and written by this module to mark that has been processed
 
-CPP_PRINT_CODE="cpp_print_code"
+CPP_PRINT_CODE:str = "cpp_print_code"
 '''
 HOW TO USE `CPP_PRINT_CODE`:
 
     CppField(
         # ...
         extensions={
-            CPP_PRINT_CODE:WritableSet(f'{PRINT_OUT} << "[" << {PRINT_FIELD} << "]";'),
+            CPP_PRINT_CODE:WritableSet(f'{CPP_PRINT_OUT} << "[" << {CPP_PRINT_FIELD} << "]";'),
         },
         # ...
     ))
 
 Note: it can be placed in the `CppField` or the `CppType` object.
-It can be placed in the `CppClass` object as well: in that case {PRINT_FIELD} is not used.
+It can be placed in the `CppClass` object as well: in that case {CPP_PRINT_FIELD} is not used.
     
 '''
 
-CPP_PRINT_FIELD_DISABLE="cpp_print_field_disable" # Add to disable print of the CppField
+CPP_PRINT_FIELD_DISABLE:str = "cpp_print_field_disable" # Add to disable print of the CppField
 
 
-_PRINT_OUT="PRINT_OUT"
-_PRINT_FIELD="PRINT_FIELD"
+_CPP_PRINT_OUT:str = "CPP_PRINT_OUT"
+_CPP_PRINT_FIELD:str = "CPP_PRINT_FIELD"
 
-PRINT_OUT=env(_PRINT_OUT)
-PRINT_FIELD=env(_PRINT_FIELD)
+CPP_PRINT_OUT:str = env(_CPP_PRINT_OUT)
+CPP_PRINT_FIELD:str = env(_CPP_PRINT_FIELD)
 
 
 class CppPrintGenerator(CppGeneratorBase):
@@ -92,10 +96,10 @@ class CppPrintGenerator(CppGeneratorBase):
     #=============================================================================================
     def __decorateClass(self, cppClass:CppClass) -> None:
         '''! Decorate the single class with all the required code '''
-        if PRINT_GENERATED in cppClass.m_extensions:
+        if CPP_PRINT_GENERATED in cppClass.m_extensions:
             logError(f"class `{cppClass.getCppQualifiedName()}` generated more than once")
             return
-        cppClass.m_extensions[PRINT_GENERATED] = True
+        cppClass.m_extensions[CPP_PRINT_GENERATED] = True
         #logInfo(f"Decorating class `{cppClass.getCppQualifiedName()}` for print - classVirtuality={cppClass.getClassVirtuality()}")
         self.__decorateClassWithPrint(cppClass=cppClass)
         self.__decorateClassWithPrintChildren(cppClass=cppClass)
@@ -110,9 +114,9 @@ class CppPrintGenerator(CppGeneratorBase):
             if isVirtual and self._baseClassHasPrint(cppClass=cppClass):
                 methodVirtuality:CppVirtuality = CppVirtuality.VIRTUAL_OVERRIDE
             elif isVirtual:
-                methodVirtuality:CppVirtuality = CppVirtuality.VIRTUAL
+                methodVirtuality = CppVirtuality.VIRTUAL
             else:
-                methodVirtuality:CppVirtuality = CppVirtuality.NORMAL
+                methodVirtuality = CppVirtuality.NORMAL
 
             print:CppMethod = CppMethod(
                 methodName=self.m_printName,
@@ -131,7 +135,8 @@ class CppPrintGenerator(CppGeneratorBase):
                 #------------------------------------------------------
                 # CUSTOM PRINT CODE
                 #------------------------------------------------------
-                print.m_code.pushEnv(env={_PRINT_OUT:outParam})
+                assertIsWritableSetAny(cppClass.m_extensions[CPP_PRINT_CODE])
+                print.m_code.pushEnv(env={_CPP_PRINT_OUT:outParam})
                 print.m_code.append(cppClass.m_extensions[CPP_PRINT_CODE])
                 print.m_code.popEnv()
             else:
@@ -164,9 +169,9 @@ class CppPrintGenerator(CppGeneratorBase):
         if isVirtual and self._baseClassHasPrint(cppClass=cppClass):
             methodVirtuality:CppVirtuality = CppVirtuality.VIRTUAL_OVERRIDE
         elif isVirtual:
-            methodVirtuality:CppVirtuality = CppVirtuality.VIRTUAL
+            methodVirtuality = CppVirtuality.VIRTUAL
         else:
-            methodVirtuality:CppVirtuality = CppVirtuality.NORMAL
+            methodVirtuality = CppVirtuality.NORMAL
 
         print:CppMethod = CppMethod(
             methodName=self.m_printChildrenName,
@@ -187,7 +192,8 @@ class CppPrintGenerator(CppGeneratorBase):
             #------------------------------------------------------
             # CUSTOM PRINT CODE
             #------------------------------------------------------
-            print.m_code.pushEnv(env={_PRINT_OUT:outParam})
+            assertIsWritableSetAny(cppClass.m_extensions[CPP_PRINT_CODE])
+            print.m_code.pushEnv(env={_CPP_PRINT_OUT:outParam})
             print.m_code.append(cppClass.m_extensions[CPP_PRINT_CODE])
             print.m_code.popEnv()
         else:
@@ -200,7 +206,7 @@ class CppPrintGenerator(CppGeneratorBase):
                 print.m_code.append(f'{cppClass.m_baseClass.getCppQualifiedName(cppClass)}::{self.m_printChildrenName}({outParam}, {self.m_fmtParam});')
                 require_space:bool = True
             else:
-                require_space:bool = False
+                require_space = False
             
             for classElement in cppClass.m_classElements:
                 if isinstance(classElement, CppField) and not classElement.m_fieldConst:
@@ -217,7 +223,7 @@ class CppPrintGenerator(CppGeneratorBase):
                     print.m_code.append(f'{printCodeBegin};')
                     if CPP_PRINT_CODE in classElement.m_extensions:
                         assert(isinstance(classElement.m_extensions[CPP_PRINT_CODE],WritableSet))
-                        print.m_code.pushEnv(env={_PRINT_OUT:outParam, _PRINT_FIELD:classElement.m_fieldName})
+                        print.m_code.pushEnv(env={_CPP_PRINT_OUT:outParam, _CPP_PRINT_FIELD:classElement.m_fieldName})
                         print.m_code.append(classElement.m_extensions[CPP_PRINT_CODE])
                         print.m_code.popEnv()
                     else:
@@ -226,14 +232,14 @@ class CppPrintGenerator(CppGeneratorBase):
     #=============================================================================================
     def _printCode(self, writableSet:WritableSet, outParam:str, fieldType:CppType, fieldExpr:str) -> None:
         if CPP_PRINT_CODE in fieldType.m_extensions:
-            assert(isinstance(fieldType.m_extensions[CPP_PRINT_CODE],WritableSet))
-            writableSet.pushEnv(env={_PRINT_OUT:outParam, _PRINT_FIELD:fieldExpr})
+            assertIsWritableSetAny(fieldType.m_extensions[CPP_PRINT_CODE])
+            writableSet.pushEnv(env={_CPP_PRINT_OUT:outParam, _CPP_PRINT_FIELD:fieldExpr})
             writableSet.append(fieldType.m_extensions[CPP_PRINT_CODE])
             writableSet.popEnv()
         elif isinstance(fieldType, CppTypeMap):
             self._mapPrintCode(outParam=outParam, writableSet=writableSet, fieldType=fieldType, fieldExpr=fieldExpr)
         elif isinstance(fieldType, CppTypeVector):
-            self._arrayPrintCode(outParam=outParam, writableSet=writableSet, fieldType=fieldType, fieldExpr=fieldExpr)
+            self._vectorPrintCode(outParam=outParam, writableSet=writableSet, fieldType=fieldType, fieldExpr=fieldExpr)
         elif isinstance(fieldType, CppTypeString):
             self._stringPrintCode(outParam=outParam, writableSet=writableSet, fieldType=fieldType, fieldExpr=fieldExpr)
         elif isinstance(fieldType, CppTypeBinary):
@@ -246,7 +252,7 @@ class CppPrintGenerator(CppGeneratorBase):
             writableSet.append(f'{outParam} << {fieldExpr};')
 
     #=============================================================================================
-    def _arrayPrintCode(self, writableSet:WritableSet, outParam:str, fieldType:CppTypeVector, fieldExpr:str) -> None:
+    def _vectorPrintCode(self, writableSet:WritableSet, outParam:str, fieldType:CppTypeVector, fieldExpr:str) -> None:
         fieldType.m_includes.add('dastd/ostream_indent.hpp')
         iterator:str = '__iterator'
         ind:str = self.__getIndName()

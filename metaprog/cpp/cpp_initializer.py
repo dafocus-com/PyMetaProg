@@ -30,7 +30,7 @@ CppInitializerAny:TypeAlias = Union[CppInitializer,str]
 
 class CppInitializerCustom(CppInitializer):
     '''! Does a custom initialization '''
-    def __init__(self, initText:str):
+    def __init__(self, initText:str) -> None:
         self.m_initText:str = initText
 
     def getText(self) -> str:
@@ -39,22 +39,22 @@ class CppInitializerCustom(CppInitializer):
 
 
 class CppInitializerSet:
-    def __init__(self, initializers:list[CppInitializerAny] = list()):
+    def __init__(self, initializers:list[CppInitializerAny] = list()) -> None:
         self.m_initializers:list[CppInitializer] = list()
         for initializer in initializers:
             self.append(initializer=initializer)    
     
-    def append(self, initializer:CppInitializerAny)->None:
+    def append(self, initializer:CppInitializerAny) -> None:
         if isinstance(initializer, str):
             self.m_initializers.append(CppInitializerCustom(initText=initializer))
         else:
             self.m_initializers.append(initializer)
 
-    def appendToList(self, strings:list[str]):
+    def appendToList(self, strings:list[str]) -> list[str]:
         self.m_initializers.sort(key=lambda initializer: initializer.getOrder())
         for initializer in self.m_initializers:
             strings.append(initializer.getText())
         return strings
 
-    def empty(self)->bool:
+    def empty(self) -> bool:
         return len(self.m_initializers) == 0

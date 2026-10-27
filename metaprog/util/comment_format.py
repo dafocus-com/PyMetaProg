@@ -22,12 +22,6 @@ from .comment_entry import CommentEntry
 class CommentFormat(ABC):
     #=======================================================================================
     @abstractmethod
-    def writeElement(self, entry:CommentEntry, writer:Writer, config:"Config"): # type: ignore
-        '''! Write a comment entry using the indicated format '''
-        ...
-
-    #=======================================================================================
-    @abstractmethod
     def writeComment(self, entries:list[CommentEntry], writer:Writer, config:"Config"): # type: ignore
         '''! Write a comment using the indicated format '''
         ...

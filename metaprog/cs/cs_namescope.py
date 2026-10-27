@@ -15,7 +15,7 @@
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
 from __future__ import annotations
-from .cs_usings import CsUsingsAny
+from .cs_includes import CsIncludesAny
 from .cs_generable import CsGenerable
 from .cs_module_config import CsModuleConfig
 from typing import Optional
@@ -28,10 +28,10 @@ class CsNameScope(CsGenerable):
     def __init__(
             self, 
             nameScope:str,
-            csUsings:CsUsingsAny,
+            csIncludes:CsIncludesAny,
             extensions:ExtensionsAny,
         ) -> None:
-        super().__init__(csUsings=csUsings, extensions=extensions)
+        super().__init__(csIncludes=csIncludes, extensions=extensions)
         self.m_nameScope:str = nameScope
 
     def getQualifiedScope(self)->list[str]:
@@ -74,20 +74,14 @@ class CsNameScope(CsGenerable):
         return ".".join(self.getShortestPath(otherScope=otherScope))
 
     def getCsUnqualifiedName(self)->str:
-        '''! Returns the unqualified C++ name '''
+        '''! Returns the unqualified C# name '''
         return self.m_nameScope
 
-    def addChild(self, child:CsNameScope)->None:
+    def addChild(self, child:CsNameScope) -> None:
         assert(child.m_parent is None)
 
-    def setupModuleConfig(self, moduleConfig:CsModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CsModuleConfig) -> None:
         super().setupModuleConfig(moduleConfig=moduleConfig)
 
-    def generateHppBody(self, writer:Writer, config:CsConfig)->None:
-        pass
-
-    def generateHppInline(self, writer:Writer, config:CsConfig)->None:
-        pass
-
-    def generateCsBody(self, writer:Writer, config:CsConfig)->None:
+    def generateCsBody(self, writer:Writer, config:CsConfig) -> None:
         pass

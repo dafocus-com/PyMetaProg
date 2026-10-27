@@ -19,15 +19,19 @@
 '''
 from metaprog.cs.cs_class import CsClass
 from metaprog.cs.cs_field import CsField
-from metaprog.cs.cs_method import *
-from metaprog.cs.cs_labels import *
-from metaprog.util.log import *
-from metaprog.util.config import *
-from .cs_generator_base import *
+from metaprog.cs.cs_enum import CsEnum
+from metaprog.cs.cs_type import CsType, CsTypeString, CsTypeSimple, CsTypeClass, CsTypeMap, CsTypeVector 
+from metaprog.cs.cs_method import CsMethod
+from metaprog.cs.cs_param import CsParam
+from metaprog.cs.cs_labels import CsVirtuality, CsClassVirtuality, CsVisibility
+from metaprog.util.log import logError
+from metaprog.util.config import env
+from metaprog.util.writable_set import WritableSet, assertIsWritableSetAny
+from .cs_generator_base import CsGeneratorBase
 
-PRINT_GENERATED="print_generated" # -> bool, created and written by this module to mark that has been processed
+CS_PRINT_GENERATED:str = "CS_print_generated" # -> bool, created and written by this module to mark that has been processed
 
-CS_PRINT_CODE="cs_print_code"
+CS_PRINT_CODE:str = "cs_print_code"
 '''
 HOW TO USE `CS_PRINT_CODE`:
 
@@ -40,18 +44,18 @@ HOW TO USE `CS_PRINT_CODE`:
     ))
 
 Note: it can be placed in the `CsField` or the `CsType` object.
-It can be placed in the `CsClass` object as well: in that case {PRINT_FIELD} is not used.
+It can be placed in the `CsClass` object as well: in that case {CS_PRINT_FIELD} is not used.
     
 '''
 
 CS_PRINT_FIELD_DISABLE="cs_print_field_disable" # Add to disable print of the CsField
 
 
-_PRINT_OUT="PRINT_OUT"
-_PRINT_FIELD="PRINT_FIELD"
+_CS_PRINT_OUT="CS_PRINT_OUT"
+_CS_PRINT_FIELD="CS_PRINT_FIELD"
 
-PRINT_OUT=env(_PRINT_OUT)
-PRINT_FIELD=env(_PRINT_FIELD)
+CS_PRINT_OUT=env(_CS_PRINT_OUT)
+CS_PRINT_FIELD=env(_CS_PRINT_FIELD)
 
 
 class CsPrintGenerator(CsGeneratorBase):
@@ -68,7 +72,7 @@ class CsPrintGenerator(CsGeneratorBase):
    
 
     #=============================================================================================
-    def _baseClassHasPrint(self, csClass:CsClass)->bool:
+    def _baseClassHasPrint(self, csClass:CsClass) -> bool:
         ''' CAN BE REDEFINED 
             Returns `True` if the `csClass` has a base class that implements print.
             By default considers deriving from a `CsClass` object as having a streamable base class.
@@ -91,10 +95,10 @@ class CsPrintGenerator(CsGeneratorBase):
     #=============================================================================================
     def __decorateClass(self, csClass:CsClass) -> None:
         '''! Decorate the single class with all the required code '''
-        if PRINT_GENERATED in csClass.m_extensions:
+        if CS_PRINT_GENERATED in csClass.m_extensions:
             logError(f"class `{csClass.getCsQualifiedName()}` generated more than once")
             return
-        csClass.m_extensions[PRINT_GENERATED] = True
+        csClass.m_extensions[CS_PRINT_GENERATED] = True
         #logInfo(f"Decorating class `{csClass.getCsQualifiedName()}` for print - classVirtuality={csClass.getClassVirtuality()}")
         self.__decorateClassWithToString(csClass=csClass)
         self.__decorateClassWithPrint(csClass=csClass)
@@ -130,9 +134,9 @@ class CsPrintGenerator(CsGeneratorBase):
             if isVirtual and self._baseClassHasPrint(csClass=csClass):
                 methodVirtuality:CsVirtuality = CsVirtuality.VIRTUAL_OVERRIDE
             elif isVirtual:
-                methodVirtuality:CsVirtuality = CsVirtuality.VIRTUAL
+                methodVirtuality = CsVirtuality.VIRTUAL
             else:
-                methodVirtuality:CsVirtuality = CsVirtuality.NORMAL
+                methodVirtuality = CsVirtuality.NORMAL
 
             print:CsMethod = CsMethod(
                 methodName=self.m_printName,
@@ -148,7 +152,8 @@ class CsPrintGenerator(CsGeneratorBase):
                 #------------------------------------------------------
                 # CUSTOM PRINT CODE
                 #------------------------------------------------------
-                print.m_code.pushEnv(env={_PRINT_OUT:outParam})
+                assertIsWritableSetAny(csClass.m_extensions[CS_PRINT_CODE])
+                print.m_code.pushEnv(env={_CS_PRINT_OUT:outParam})
                 print.m_code.append(csClass.m_extensions[CS_PRINT_CODE])
                 print.m_code.popEnv()
             else:
@@ -171,9 +176,9 @@ class CsPrintGenerator(CsGeneratorBase):
         if isVirtual and self._baseClassHasPrint(csClass=csClass):
             methodVirtuality:CsVirtuality = CsVirtuality.VIRTUAL_OVERRIDE
         elif isVirtual:
-            methodVirtuality:CsVirtuality = CsVirtuality.VIRTUAL
+            methodVirtuality = CsVirtuality.VIRTUAL
         else:
-            methodVirtuality:CsVirtuality = CsVirtuality.NORMAL
+            methodVirtuality = CsVirtuality.NORMAL
 
         print:CsMethod = CsMethod(
             methodName=self.m_printChildrenName,
@@ -191,7 +196,8 @@ class CsPrintGenerator(CsGeneratorBase):
             #------------------------------------------------------
             # CUSTOM PRINT CODE
             #------------------------------------------------------
-            print.m_code.pushEnv(env={_PRINT_OUT:outParam})
+            assertIsWritableSetAny(csClass.m_extensions[CS_PRINT_CODE])
+            print.m_code.pushEnv(env={_CS_PRINT_OUT:outParam})
             print.m_code.append(csClass.m_extensions[CS_PRINT_CODE])
             print.m_code.popEnv()
         else:
@@ -210,8 +216,8 @@ class CsPrintGenerator(CsGeneratorBase):
                         continue
                     print.m_code.append(f'{outParam}.AddText("{classElement.m_fieldName}: ");')
                     if CS_PRINT_CODE in classElement.m_extensions:
-                        assert(isinstance(classElement.m_extensions[CS_PRINT_CODE],WritableSet))
-                        print.m_code.pushEnv(env={_PRINT_OUT:outParam, _PRINT_FIELD:classElement.m_fieldName})
+                        assertIsWritableSetAny(classElement.m_extensions[CS_PRINT_CODE])
+                        print.m_code.pushEnv(env={_CS_PRINT_OUT:outParam, _CS_PRINT_FIELD:classElement.m_fieldName})
                         print.m_code.append(classElement.m_extensions[CS_PRINT_CODE])
                         print.m_code.popEnv()
                     else:
@@ -220,14 +226,14 @@ class CsPrintGenerator(CsGeneratorBase):
     #=============================================================================================
     def _printCode(self, csClass:CsClass, writableSet:WritableSet, outParam:str, fieldType:CsType, fieldExpr:str) -> None:
         if CS_PRINT_CODE in fieldType.m_extensions:
-            assert(isinstance(fieldType.m_extensions[CS_PRINT_CODE],WritableSet))
-            writableSet.pushEnv(env={_PRINT_OUT:outParam, _PRINT_FIELD:fieldExpr})
+            assertIsWritableSetAny(fieldType.m_extensions[CS_PRINT_CODE])
+            writableSet.pushEnv(env={_CS_PRINT_OUT:outParam, _CS_PRINT_FIELD:fieldExpr})
             writableSet.append(fieldType.m_extensions[CS_PRINT_CODE])
             writableSet.popEnv()
         elif isinstance(fieldType, CsTypeMap):
             self._mapPrintCode(csClass=csClass, outParam=outParam, writableSet=writableSet, fieldType=fieldType, fieldExpr=fieldExpr)
         elif isinstance(fieldType, CsTypeVector):
-            self._arrayPrintCode(outParam=outParam, writableSet=writableSet, fieldType=fieldType, fieldExpr=fieldExpr)
+            self._vectorPrintCode(outParam=outParam, writableSet=writableSet, fieldType=fieldType, fieldExpr=fieldExpr)
         elif isinstance(fieldType, CsTypeString):
             self._stringPrintCode(outParam=outParam, writableSet=writableSet, fieldType=fieldType, fieldExpr=fieldExpr)
         elif isinstance(fieldType, CsTypeClass):
@@ -236,12 +242,12 @@ class CsPrintGenerator(CsGeneratorBase):
             writableSet.append(f'{outParam}.AddText(Convert.ToString({fieldExpr}));')
 
     #=============================================================================================
-    def _arrayPrintCode(self, writableSet:WritableSet, outParam:str, fieldType:CsTypeVector, fieldExpr:str) -> None:
+    def _vectorPrintCode(self, writableSet:WritableSet, outParam:str, fieldType:CsTypeVector, fieldExpr:str) -> None:
         item:str = self.__getIndName()
         if isinstance(fieldType.m_containedType, CsTypeClass):
-            action:str = f'{item}.Print({outParam});\n'
+            action:str = f'{item}.{self.m_printName}({outParam});\n'
         else:
-            action:str = f'{outParam}.AddText(Convert.ToString({item}));\n'
+            action = f'{outParam}.AddText(Convert.ToString({item}));\n'
 
         writableSet.append(f'''\
             {outParam}.AddText("[");
@@ -261,9 +267,9 @@ class CsPrintGenerator(CsGeneratorBase):
     def _mapPrintCode(self, csClass:CsClass, writableSet:WritableSet, outParam:str, fieldType:CsTypeMap, fieldExpr:str) -> None:
         item:str = self.__getIndName()
         if isinstance(fieldType.m_containedType, CsTypeClass):
-            action:str = f'{item}.Value.Print({outParam});\n'
+            action:str = f'{item}.Value.{self.m_printName}({outParam});\n'
         else:
-            action:str = f'{outParam}.AddText(Convert.ToString({item}.Value));\n'
+            action = f'{outParam}.AddText(Convert.ToString({item}.Value));\n'
 
         writableSet.append(f'''\
             {outParam}.AddText("[");
@@ -284,10 +290,10 @@ class CsPrintGenerator(CsGeneratorBase):
 
     #=============================================================================================
     def _classPrintCode(self, writableSet:WritableSet, outParam:str, fieldType:CsTypeClass, fieldExpr:str) -> None:
-        if isinstance(fieldType.m_csClass, CsEnumBase):
+        if isinstance(fieldType.m_csClass, CsEnum):
             writableSet.append(f'''\
                 {outParam}.AddText({fieldExpr}.ToString());
             ''')
             return
 
-        writableSet.append(f'{fieldExpr}.Print({outParam});')
+        writableSet.append(f'{fieldExpr}.{self.m_printName}({outParam});')

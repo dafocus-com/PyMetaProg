@@ -30,18 +30,18 @@ class CsModule(CsModuleConfig):
         super().__init__(csFilePath=csFilePath)
         self.m_generables:list[CsGenerable] = list()
 
-    def __writeCs(self, writer:Writer, config:Config)->None:
+    def __writeCs(self, writer:Writer, config:Config) -> None:
         assert(isinstance(config, CsConfig))
         for generable in self.m_generables:
             generable.generateCsBody(writer=writer, config=config)
 
 
-    def addGenerable(self, generable:CsGenerable):
+    def addChild(self, generable:CsGenerable) -> None:
         assert(generable.m_moduleConfig is None)
         self.m_generables.append(generable)
         generable.m_moduleConfig = self
 
-    def generate(self, config:CsConfig):
+    def generate(self, config:CsConfig) -> None:
         for generable in self.m_generables:
             generable.setupModuleConfig(self) # type: ignore
 
@@ -49,9 +49,9 @@ class CsModule(CsModuleConfig):
         csSourceFile:SourceFile = SourceFile(self.m_csFilePath)
 
         csSourceFile.m_writables.append(self.m_moduleComment)
-        csSourceFile.m_writables.append(self.m_csPreUsings)
-        csSourceFile.m_writables.append(self.m_csUsings)
-        csSourceFile.m_writables.append(self.m_csPostUsings)
+        csSourceFile.m_writables.append(self.m_csPreIncludes)
+        csSourceFile.m_writables.append(self.m_csIncludes)
+        csSourceFile.m_writables.append(self.m_csPostIncludes)
         csSourceFile.m_writables.append(csWritable)
         csSourceFile.m_writables.append(self.m_csFooter)
         csSourceFile.write(config)

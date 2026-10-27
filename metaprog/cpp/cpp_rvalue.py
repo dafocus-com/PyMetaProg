@@ -28,22 +28,24 @@ class CppRValue(ABC):
     '''! Base class for objects that can become an R-Value '''
 
     @abstractmethod
-    def generateValue(self, writer:Writer, config:CppConfig, otherScope:Optional[CppNameScope]=None)->None:
+    def generateValue(self, writer:Writer, config:CppConfig, otherScope:Optional[CppNameScope]=None) -> None:
         '''! Generate the R-value text '''
         ...
 
-CppRValueAny:TypeAlias = Union[CppRValue,str,Writable,None]    
+CppRValueAny:TypeAlias = Union[CppRValue,str,Writable,None,bool]    
 
 class CppRValueContainer(Writable):
     '''! Container for values '''
-    def __init__(self, cppValueAny:CppRValueAny):
+    def __init__(self, cppValueAny:CppRValueAny) -> None:
         self.m_cppValueAny:CppRValueAny = cppValueAny
 
-    def empty(self)->bool:
+    def empty(self) -> bool:
         return self.m_cppValueAny is None
 
-    def write(self, writer:Writer, config:Config):
+    def write(self, writer:Writer, config:Config) -> None:
         '''! Generate the R-value text '''
+        if isinstance(self.m_cppValueAny, bool):
+            return
         if self.m_cppValueAny is None: return
         if isinstance(self.m_cppValueAny, Writable):
             self.m_cppValueAny.write(writer=writer, config=config)

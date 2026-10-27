@@ -23,28 +23,28 @@ class CppNamespace(CppNameScopeWithChildren):
     def __init__(self, namespaceName:str) -> None:
         super().__init__(nameScope=namespaceName)
 
-    def __enterNamespace(self, writer:Writer, config:CppConfig)->None:
+    def __enterNamespace(self, writer:Writer, config:CppConfig) -> None:
         self._enterNameScope(config=config)
         config.m_cppCurrentNameScope = self
         writer.writeNL(f'namespace {self.getCppUnqualifiedName()} {{')
         writer.incIndent()
 
-    def __exitNamespace(self, writer:Writer, config:CppConfig)->None:
+    def __exitNamespace(self, writer:Writer, config:CppConfig) -> None:
         writer.decIndent()
         writer.writeNL(f'}} // namespace {self.getCppUnqualifiedName()}')
         self._exitNameScope(config=config)
 
-    def generateHppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateHppBody(self, writer:Writer, config:CppConfig) -> None:
         self.__enterNamespace(writer, config)
         super().generateHppBody(writer, config)
         self.__exitNamespace(writer, config)
 
-    def generateHppInline(self, writer:Writer, config:CppConfig)->None:
+    def generateHppInline(self, writer:Writer, config:CppConfig) -> None:
         self.__enterNamespace(writer, config)
         super().generateHppInline(writer, config)
         self.__exitNamespace(writer, config)
 
-    def generateCppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateCppBody(self, writer:Writer, config:CppConfig) -> None:
         self.__enterNamespace(writer, config)
         super().generateCppBody(writer, config)
         self.__exitNamespace(writer, config)

@@ -14,13 +14,15 @@
 #
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
-from .cs_usings import CsUsings, CsUsingsAny
+from .cs_includes import CsIncludes, CsIncludesAny
 from .cs_module_config import CsModuleConfig
 from .cs_config import CsConfig
-from .cs_type import *
+from .cs_type import CsType, CsTypeFactory, CsTypeAny
 from .cs_class_element import CsClassElement
 from typing import Optional
-from metaprog.util.comment import *
+from metaprog.util.comment import Comment, CommentAny
+from metaprog.util.comment_entry import COMMENT_PARAM
+from metaprog.util.writer import Writer
 
 class CsParam:
     '''! CsMethod parameter '''
@@ -30,18 +32,18 @@ class CsParam:
         paramType:CsTypeAny,
         paramDefault:Optional[str] = None,
         paramComment:CommentAny = None,
-        csUsings:CsUsingsAny = None,
+        csIncludes:CsIncludesAny = None,
         isRef:bool = False,
     ):
         self.m_paramName:str = paramName
         self.m_paramType:CsType = CsTypeFactory(paramType)
         self.m_paramDefault:Optional[str] = paramDefault
         self.m_paramComment:Comment = Comment(commentAny=paramComment, commandIfString=COMMENT_PARAM, paramIfString=paramName)
-        self.m_csUsings:CsUsings = CsUsings(usings=csUsings)
+        self.m_csIncludes:CsIncludes = CsIncludes(usings=csIncludes)
         self.m_owningMehod:Optional[CsClassElement] = None
         self.m_isRef:bool = isRef
 
-    def addToComment(self, comment:Comment)->None:
+    def addToComment(self, comment:Comment) -> None:
         comment.merge(other=self.m_paramComment)
 
     def writeDecl(self, writer:Writer, config:CsConfig) -> None:
@@ -52,6 +54,6 @@ class CsParam:
         self.m_paramType.declVar(writer=writer, config=config, var=self.m_paramName, containerClass=self.m_owningMehod.getCsClass(), isRef=self.m_isRef)
         writer.writeRaw(f'{defaultCode}')
 
-    def setupModuleConfig(self, moduleConfig:CsModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CsModuleConfig) -> None:
         '''! Operate on the accessible parts of the module to add usings, header parts and so on '''
-        moduleConfig.m_csUsings.merge(self.m_csUsings)
+        moduleConfig.m_csIncludes.merge(self.m_csIncludes)

@@ -21,6 +21,8 @@ COMMENT_SUMMARY:str = "summary"
 COMMENT_PARAM:str = "param"
 COMMENT_TEMPLATE_ARG:str = "tparam"
 COMMENT_RETURN:str = "return"
+COMMENT_THROWS:str = "throws"
+
 
 class CommentEntry:
     '''! Single doxygen entry '''

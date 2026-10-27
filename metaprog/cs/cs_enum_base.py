@@ -16,10 +16,10 @@
 
 from __future__ import annotations
 from .cs_namescope import CsNameScope
-from .cs_usings import CsUsingsAny
-from .cs_labels import *
-from metaprog.util.extensions import *
-from metaprog.util.comment import *
+from .cs_includes import CsIncludesAny
+from .cs_labels import CsVisibility
+from metaprog.util.extensions import ExtensionsAny
+from metaprog.util.comment import Comment, CommentAny
 
 class CsEnumEntry:
     def __init__(self, enumEntryName:str, enumEntryValue:int, enumEntryDefault:bool=False, brief:CommentAny=None):
@@ -33,12 +33,12 @@ class CsEnumBase(CsNameScope):
             self, 
             enumClassName:str,
             enumEntries:list[CsEnumEntry] = list(),
-            csUsings:CsUsingsAny=None,
+            csIncludes:CsIncludesAny=None,
             extensions:ExtensionsAny=None,
             brief:CommentAny=None,
             visibility:CsVisibility=CsVisibility.PUBLIC,
         ):
-        super().__init__(nameScope=enumClassName, csUsings=csUsings, extensions=extensions)
+        super().__init__(nameScope=enumClassName, csIncludes=csIncludes, extensions=extensions)
         self.m_enumEntries:list[CsEnumEntry] = list()
         self.m_enumEntries += enumEntries
         self.m_comment:Comment = Comment(commentAny=brief)

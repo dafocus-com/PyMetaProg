@@ -15,7 +15,7 @@
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
 from .cpp_class_element import CppClassElement
-from .cpp_labels import *
+from .cpp_labels import CppVisibility
 from .cpp_config import CppConfig
 from .cpp_includes import CppIncludesAny
 from metaprog.util.extensions import ExtensionsAny
@@ -46,26 +46,26 @@ class CppClassCustom(CppClassElement):
         self.m_writableInCpp:WritableSet = WritableSet(text=writableInCpp)
         
     def needsCpp(self)->bool:
-        '''! Must return `True` if this class requires the C++ file`'''
+        '''! Must return `True` if this class requires the C++ file '''
         return not self.m_writableInCpp.empty()
 
     def needsInline(self)->bool:
-        '''! Must return `True` if this class requires the inline .hpp part`'''
+        '''! Must return `True` if this class requires the inline .hpp part '''
         return not self.m_writableInline.empty()
     
     def identify(self)->str:
         '''! Returns a string that can be used to identify this element in logs '''
         return self.m_desc
 
-    def generateHppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateHppBody(self, writer:Writer, config:CppConfig) -> None:
         '''! Generate the body part of the C++ .hpp file, i.e. where the class definitions go '''
         self.m_writableInClass.write(writer=writer, config=config)
 
 
-    def generateHppInline(self, writer:Writer, config:CppConfig)->None:
+    def generateHppInline(self, writer:Writer, config:CppConfig) -> None:
         '''! Generate the inline part of the C++ .hpp file, i.e. where the `inline` methods go '''
         self.m_writableInline.write(writer=writer, config=config)
 
-    def generateCppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateCppBody(self, writer:Writer, config:CppConfig) -> None:
         '''! Generate the body part of the C++ .cpp file, i.e. where implementation of the methods go '''
         self.m_writableInCpp.write(writer=writer, config=config)

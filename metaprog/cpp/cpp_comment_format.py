@@ -53,7 +53,7 @@ class CppCommentFormat(CommentFormat):
             self.m_mapCommands[mapCommand] = mapCommands[mapCommand]
 
     #=======================================================================================
-    def writeElement(self, entry:CommentEntry, writer:Writer, config:Config):
+    def _writeElement(self, entry:CommentEntry, writer:Writer, config:Config) -> None:
         '''! Write a comment entry using the indicated format '''
         assert(self.m_width - self.m_blockIndent > 8)
         lineStart:str = ""
@@ -67,7 +67,7 @@ class CppCommentFormat(CommentFormat):
         if entry.m_command in self.m_mapCommands:
             actualCommandString:str = self.m_mapCommands[entry.m_command]
         else:
-            actualCommandString:str = entry.m_command
+            actualCommandString = entry.m_command
 
         command:str = "@"+actualCommandString+" "
         if entry.m_parameter is not None:
@@ -88,7 +88,7 @@ class CppCommentFormat(CommentFormat):
             command = " " * self.m_blockIndent
 
     #=======================================================================================
-    def writeComment(self, entries:list[CommentEntry], writer:Writer, config:Config):
+    def writeComment(self, entries:list[CommentEntry], writer:Writer, config:Config) -> None:
         '''! Write a comment using the indicated format '''
         if not entries: return
 
@@ -99,12 +99,12 @@ class CppCommentFormat(CommentFormat):
         elif self.m_commentFormatType == CppCommentFormatType.SLASHSLASHSLASH: 
             pass
         elif self.m_commentFormatType == CppCommentFormatType.SLASHSTAR:
-            firstLine:str = '/*\n'
-            lastLine:str = '*/\n'
+            firstLine = '/*\n'
+            lastLine = '*/\n'
 
         if self.m_startWithEmtpyLine:
             writer.writeRaw("\n")
         writer.writeRaw(firstLine)
         for entry in entries:
-            self.writeElement(entry=entry, writer=writer, config=config)
+            self._writeElement(entry=entry, writer=writer, config=config)
         writer.writeRaw(lastLine)

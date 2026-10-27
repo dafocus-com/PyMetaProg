@@ -54,20 +54,20 @@ class CppGenerable(ABC):
             return self.m_parent.getCppModuleConfig()
         return None
 
-    def setupModuleConfig(self, moduleConfig:CppModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CppModuleConfig) -> None:
         '''! Operate on the accessible parts of the module to add includes, header parts and so on '''
         moduleConfig.m_hppIncludes.merge(self.m_hppIncludes)
         moduleConfig.m_cppIncludes.merge(self.m_cppIncludes)
 
-    def generateHppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateHppBody(self, writer:Writer, config:CppConfig) -> None:
         '''! Generate the body part of the C++ .hpp file, i.e. where the class definitions go '''
         pass
 
 
-    def generateHppInline(self, writer:Writer, config:CppConfig)->None:
+    def generateHppInline(self, writer:Writer, config:CppConfig) -> None:
         '''! Generate the inline part of the C++ .hpp file, i.e. where the `inline` methods go '''
         pass
 
-    def generateCppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateCppBody(self, writer:Writer, config:CppConfig) -> None:
         '''! Generate the body part of the C++ .cpp file, i.e. where implementation of the methods go '''
         pass

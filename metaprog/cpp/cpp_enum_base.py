@@ -17,9 +17,8 @@
 from __future__ import annotations
 from .cpp_namescope import CppNameScope
 from .cpp_includes import CppIncludesAny
-from metaprog.util.extensions import *
-from metaprog.util.comment import *
-from metaprog.util.log import *
+from metaprog.util.extensions import ExtensionsAny
+from metaprog.util.comment import Comment, CommentAny
 
 class CppEnumEntry:
     def __init__(self, enumEntryName:str, enumEntryValue:int, enumEntryDefault:bool=False, brief:CommentAny=None):

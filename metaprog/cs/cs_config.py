@@ -17,15 +17,13 @@
 from metaprog.util.config import Config
 from typing import Optional
 from metaprog.util.comment_format import CommentFormat
-#from metaprog.util.comment import COMMENT_BRIEF
 from .cs_comment_format import CsCommentFormat
 
 class CsConfig(Config):
     '''! Generation configuration '''
     def __init__(self, commentFormat:CommentFormat = CsCommentFormat()) -> None:
+        from .cs_namescope import CsNameScope
         super().__init__(commentFormat=commentFormat)
         
-        self.m_csCurrentNameScope:Optional["CsNameScope"] = None # type: ignore
+        self.m_csCurrentNameScope:Optional[CsNameScope] = None # type: ignore
         ''' During generation, indicates that we are inside C# `namespace XYZ {...here...}` '''
-
-        #self.m_commentFormat.m_mapCommands[COMMENT_BRIEF] = "summary"

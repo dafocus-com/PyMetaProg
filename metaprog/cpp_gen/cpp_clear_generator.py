@@ -18,13 +18,13 @@
 from metaprog.cpp.cpp_class import CppClass
 from metaprog.cpp.cpp_field import CppField
 from metaprog.cpp.cpp_method import CppMethod
-from metaprog.cpp.cpp_labels import *
-from metaprog.cpp.cpp_type import *
-from metaprog.util.log import *
-from .cpp_generator_base import *
+from metaprog.cpp.cpp_labels import CppInline
+from metaprog.cpp.cpp_type import CppTypeSharedPtr, CppTypeSimple,CppTypeVector, CppTypeMap
+from metaprog.util.log import logError
+from .cpp_generator_base import CppGeneratorBase
 from typing import Union
 
-CLEAR_GENERATED="cpp_clear_generated" # -> bool, created and written by this module to mark that has been processed
+CPP_CLEAR_GENERATED:str = "cpp_clear_generated" # -> bool, created and written by this module to mark that has been processed
 
 # Once the generator has executed, these extensions contain the name that
 # has been assigned to some methods. This allows the following generators to
@@ -61,10 +61,10 @@ class CppClearGenerator(CppGeneratorBase):
     #=============================================================================================
     def __decorateClass(self, cppClass:CppClass) -> None:
         '''! Decorate the single class with all the required code '''
-        if CLEAR_GENERATED in cppClass.m_extensions:
+        if CPP_CLEAR_GENERATED in cppClass.m_extensions:
             logError(f"class `{cppClass.getCppQualifiedName()}` generated more than once")
             return
-        cppClass.m_extensions[CLEAR_GENERATED] = True
+        cppClass.m_extensions[CPP_CLEAR_GENERATED] = True
         #logInfo(f"Decorating class `{cppClass.getCppQualifiedName()}`")
 
         cppClass.m_extensions[CLEAR_METHOD] = self.m_clearName

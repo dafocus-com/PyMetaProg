@@ -25,19 +25,23 @@ from metaprog.util.comment import CommentAny
 
 from .cpp_generable import CppGenerable
 from .cpp_module_config import CppModuleConfig
+from .cpp_children_container import CppChildrenContainer
+from typing import TYPE_CHECKING 
+if TYPE_CHECKING: 
+    from .cpp_namescope import CppNameScope
 
-class CppModule(CppModuleConfig):
+class CppModule(CppModuleConfig, CppChildrenContainer):
     '''! Represents a .hpp and an optional .cpp file '''
     def __init__(self, hppFilePath:Path, cppFilePath:Path, config:CppConfig, brief:CommentAny=None) -> None:
         super().__init__(hppFilePath=hppFilePath, cppFilePath=cppFilePath, config=config, brief=brief)
         self.m_generables:list[CppGenerable] = list()
 
-    def __writeCpp(self, writer:Writer, config:Config)->None:
+    def __writeCpp(self, writer:Writer, config:Config) -> None:
         assert(isinstance(config, CppConfig))
         for generable in self.m_generables:
             generable.generateCppBody(writer=writer, config=self.m_config)
 
-    def __writeHpp(self, writer:Writer, config:Config)->None:
+    def __writeHpp(self, writer:Writer, config:Config) -> None:
         assert(isinstance(config, CppConfig))
         needsInline:bool = False
         for generable in self.m_generables:
@@ -61,12 +65,15 @@ class CppModule(CppModuleConfig):
                 generable.generateHppInline(writer=writer, config=config)
 
 
-    def addGenerable(self, generable:CppGenerable):
+    def addGenerableChild(self, generable:CppGenerable) -> None:
         assert(generable.m_moduleConfig is None)
         self.m_generables.append(generable)
         generable.m_moduleConfig = self
 
-    def generate(self):
+    def addChild(self, child:CppNameScope) -> None:
+        self.addGenerableChild(generable=child)
+
+    def generate(self) -> None:
         for generable in self.m_generables:
             generable.setupModuleConfig(self)
 
@@ -91,7 +98,6 @@ class CppModule(CppModuleConfig):
             self.m_cppIncludes.addRelativeToOtherFile(includedFile=self.m_hppFilePath, includingFile=self.m_cppFilePath)
 
             cppWritable:WritableBridge = WritableBridge(self, CppModule.__writeCpp)
-            cppSourceFile:SourceFile = SourceFile(self.m_cppFilePath)
             cppSourceFile:SourceFile = SourceFile(self.m_cppFilePath)
 
             cppSourceFile.m_writables.append(self.m_moduleComment)

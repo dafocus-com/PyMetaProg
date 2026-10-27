@@ -14,7 +14,9 @@
 #
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
-from .cs_generator_base import *
+from .cs_generator_base import CsGeneratorBase
+from metaprog.cs.cs_class import CsClass
+from metaprog.cs.cs_enum import CsEnum
 
 class CsGeneratorSet:
     #=============================================================================================

@@ -16,36 +16,36 @@
 
 from __future__ import annotations
 from .cs_namescope import CsNameScope
-from .cs_usings import CsUsingsAny
+from .cs_includes import CsIncludesAny
 from .cs_type import CsTypeAny, CsType, CsTypeSimple, CsTypeFactory
 from .cs_config import CsConfig
 from .cs_module_config import CsModuleConfig
 from .cs_rvalue import CsRValue
-from .cs_namespace import *
+from .cs_namespace import CsNamespace
 from metaprog.util.writer import Writer
-from metaprog.util.extensions import *
-from metaprog.util.comment import *
-from metaprog.util.log import *
+from metaprog.util.extensions import ExtensionsAny
+from metaprog.util.comment import Comment, CommentAny
+from typing import Optional
 
 class CsConstant(CsNameScope, CsRValue):
     def __init__(
             self, 
             constantName:str,
             constantType:CsTypeAny=CsTypeSimple(simpleType="uint32_t"),
-            csUsings:CsUsingsAny=None,
+            csIncludes:CsIncludesAny=None,
             extensions:ExtensionsAny=None,
             brief:CommentAny=None,
             valueName:str="Value"
         ):
-        super().__init__(nameScope=constantName, csUsings=csUsings, extensions=extensions)
+        super().__init__(nameScope=constantName, csIncludes=csIncludes, extensions=extensions)
         self.m_constantType:CsType = CsTypeFactory(constantType)
         self.m_comment:Comment = Comment(commentAny=brief)
         self.m_valueName:str = valueName
 
-    def setupModuleConfig(self, moduleConfig:CsModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CsModuleConfig) -> None:
         super().setupModuleConfig(moduleConfig=moduleConfig)
 
-    def generateCsBody(self, writer:Writer, config:CsConfig)->None:
+    def generateCsBody(self, writer:Writer, config:CsConfig) -> None:
         self.m_comment.write(writer, config)
         
         if isinstance(self.m_parent, CsNamespace):
@@ -57,7 +57,7 @@ class CsConstant(CsNameScope, CsRValue):
         else:
             writer.writeNL(f"public const {self.m_constantType.toString(containerClass=self)} {self.getCsUnqualifiedName()} = {self.m_constantType.getAssigneableDefaultValue(self)};")
 
-    def generateValue(self, writer:Writer, config:CsConfig, otherScope:Optional[CsNameScope]=None)->None:
+    def generateValue(self, writer:Writer, config:CsConfig, otherScope:Optional[CsNameScope]=None) -> None:
         '''! Generate the R-value text '''
         if isinstance(self.m_parent, CsNamespace):
             writer.writeRaw(f'{self.getCsQualifiedName(otherScope=otherScope)}.{self.m_valueName}')

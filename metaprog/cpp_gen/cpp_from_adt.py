@@ -14,20 +14,26 @@
 #
 # Author: Davide Achilli <davide.achilli@dafocus.com>
 
-from typing import Optional
-from metaprog.adt.adt_class import *
-from metaprog.adt.adt_type import *
-from metaprog.adt.adt_type_misc import *
-from metaprog.adt.adt_class_set import *
-from metaprog.cpp.cpp_class import *
-from metaprog.cpp.cpp_namescope_with_children import CppNameScopeWithChildren
-from metaprog.cpp.cpp_type import *
-from metaprog.cpp.cpp_field import *
-from metaprog.cpp.cpp_constant import *
-from metaprog.cpp_gen.cpp_marshal_generator import *
-from metaprog.cpp_gen.cpp_hash_generator import *
-from metaprog.util.log import *
-from metaprog.cpp.cpp_includes import *
+from metaprog.adt.adt_class_set import AdtClassSet
+from metaprog.adt.adt_class import AdtClass
+from metaprog.adt.adt_constant import AdtConstant
+from metaprog.adt.adt_field import AdtField
+from metaprog.adt.adt_enum import AdtEnum
+from metaprog.adt.adt_type_misc import AdtType, AdtTypeInteger, AdtTypeString, AdtTypeClass, AdtTypeVector, AdtTypeBinary, AdtTypeBool, AdtTypeEnum, AdtTypeMap, AdtTypeFloat
+from metaprog.cpp_gen.cpp_hash_generator import CPP_HASH_CLASS_NAME
+from metaprog.cpp_gen.cpp_marshal_generator import CPP_MARSHAL_CLASS_NAME, CPP_MARSHAL_FIELD_ENABLE, CPP_MARSHAL_FIELD_NAME
+from metaprog.cpp.cpp_children_container import CppChildrenContainer
+from metaprog.cpp.cpp_class import CppClass
+from metaprog.cpp.cpp_constant import CppConstant
+from metaprog.cpp.cpp_enum import CppEnumEntry, CppEnum
+from metaprog.cpp.cpp_field import CppField
+from metaprog.cpp.cpp_labels import CppClassVirtuality
+from metaprog.cpp.cpp_includes import CppIncludes
+from metaprog.cpp.cpp_type import CppType, CppTypeSharedPtr, CppTypeClass, CppTypeSimple, CppTypeString, CppTypeBinary, CppTypeVector, CppTypeMap
+from metaprog.cpp.cpp_rvalue import CppRValueAny
+from metaprog.util.log import logError
+from metaprog.util.extensions import Extensions
+from typing import Optional, Any, Callable
 
 '''! 
 This extension value can be added to the extensions of the `AdtClass`
@@ -44,7 +50,7 @@ Used in `AdtClass` to execute extra actions on the created `CppClass`, like addi
 It expects an instance of `CppAdtClassCustom` or a `list[CppAdtClassCustom]`. 
 It will call their methods 'customAction' after having created the C++ class.
 '''
-CPP_CUSTOM_CODE:str = "cpp_custom_code"
+CPP_CUSTOM_PROCESSING:str = "cpp_custom_processing"
 
 '''! Used in `AdtType` with value type `CppType` of the type that the C++ implementation should use '''
 CPP_TYPE:str = "cpp_adt_type"
@@ -56,11 +62,11 @@ CPP_FIELD_DEFAULT:str = "cpp_field_default"
 CPP_INCLUDES:str = "cpp_includes"
 
 class CppAdtClassCustom:
-    def customAction(self, adtClass:AdtClass, cppClass:CppClass)->None:
+    def customAction(self, adtClass:AdtClass, cppClass:CppClass) -> None:
         pass
 
 class CppAdtTypeCustom:
-    def customAction(self, adtType:AdtType, cppType:CppType)->None:
+    def customAction(self, adtType:AdtType, cppType:CppType) -> None:
         pass
 
 class CppFromAdt:
@@ -71,10 +77,10 @@ class CppFromAdt:
     '''
     def __init__(
             self, 
-            defaultNameScope:Optional[CppNameScopeWithChildren]=None,   # This is the namescope 
+            defaultNameScope:Optional[CppChildrenContainer]=None,   # This is the namescope 
             fieldPostProcessor:Optional[Callable[[CppField], None]]=None, # Called for every Field; allows post processing
         ):
-        self.m_defaultNameScope:Optional[CppNameScopeWithChildren] = defaultNameScope
+        self.m_defaultNameScope:Optional[CppChildrenContainer] = defaultNameScope
         self.m_fieldPostProcessor:Optional[Callable[[CppField], None]] = fieldPostProcessor
         
         self.m_classMap:dict[str,CppClass] = dict()
@@ -87,7 +93,7 @@ class CppFromAdt:
         ''' Maps the ADT constants '''
 
     #=======================================================================================================
-    def generate(self, adtClassSet:AdtClassSet)->list[CppClass]:
+    def generate(self, adtClassSet:AdtClassSet) -> list[CppClass]:
         '''! Generate the C++ classes related to the specified ADT classes '''
         for adtConstant in adtClassSet.m_constants:
             self.__generateConstant(adtConstant=adtConstant)
@@ -114,15 +120,15 @@ class CppFromAdt:
         return cppClasses
 
     #=======================================================================================================
-    def __generateClass(self, adtClass:AdtClass):
+    def __generateClass(self, adtClass:AdtClass) -> None:
         if adtClass.m_className in self.m_classMap:
             logError(f"Dupe ADT class {adtClass.m_className}")
         
         if CPP_NAMESCOPE in adtClass.m_extensions:
-            assert(isinstance(adtClass.m_extensions[CPP_NAMESCOPE], CppNameScopeWithChildren))
-            nameScope:CppNameScopeWithChildren = adtClass.m_extensions[CPP_NAMESCOPE]
+            assert(isinstance(adtClass.m_extensions[CPP_NAMESCOPE], CppChildrenContainer))
+            nameScope:CppChildrenContainer = adtClass.m_extensions[CPP_NAMESCOPE]
         elif self.m_defaultNameScope is not None:
-            nameScope:CppNameScopeWithChildren = self.m_defaultNameScope
+            nameScope = self.m_defaultNameScope
         else:
             logError(f"No namescope defined for class {adtClass.m_className}")
             return
@@ -130,7 +136,7 @@ class CppFromAdt:
         if CPP_NAME in adtClass.m_extensions:
             cppClassName:str = adtClass.m_extensions[CPP_NAME]
         else:
-            cppClassName:str = adtClass.m_className
+            cppClassName = adtClass.m_className
 
         cppClass:CppClass = CppClass(
             className=cppClassName,
@@ -151,15 +157,15 @@ class CppFromAdt:
 
 
     #=======================================================================================================
-    def __generateEnum(self, adtEnum:AdtEnum):
+    def __generateEnum(self, adtEnum:AdtEnum) -> None:
         if adtEnum.m_enumName in self.m_enumMap:
             logError(f"Dupe ADT enum {adtEnum.m_enumName}")
 
         if CPP_NAMESCOPE in adtEnum.m_extensions:
-            assert(isinstance(adtEnum.m_extensions[CPP_NAMESCOPE], CppNameScopeWithChildren))
-            nameScope:CppNameScopeWithChildren = adtEnum.m_extensions[CPP_NAMESCOPE]
+            assert(isinstance(adtEnum.m_extensions[CPP_NAMESCOPE], CppChildrenContainer))
+            nameScope:CppChildrenContainer = adtEnum.m_extensions[CPP_NAMESCOPE]
         elif self.m_defaultNameScope is not None:
-            nameScope:CppNameScopeWithChildren = self.m_defaultNameScope
+            nameScope = self.m_defaultNameScope
         else:
             logError(f"No namescope defined for enum {adtEnum.m_enumName}")
             return
@@ -167,7 +173,7 @@ class CppFromAdt:
         if CPP_NAME in adtEnum.m_extensions:
             cppEnumName:str = adtEnum.m_extensions[CPP_NAME]
         else:
-            cppEnumName:str = adtEnum.m_enumName
+            cppEnumName = adtEnum.m_enumName
 
         cppEnumEntries:list[CppEnumEntry] = list()
         for adtEnumEntry in adtEnum.m_enumEntries:
@@ -191,15 +197,15 @@ class CppFromAdt:
         nameScope.addChild(child=cppEnum)
 
     #=======================================================================================================
-    def __generateConstant(self, adtConstant:AdtConstant):
+    def __generateConstant(self, adtConstant:AdtConstant) -> None:
         if adtConstant.m_constantName in self.m_constantMap:
             logError(f"Dupe ADT constant {adtConstant.m_constantName}")
 
         if CPP_NAMESCOPE in adtConstant.m_extensions:
-            assert(isinstance(adtConstant.m_extensions[CPP_NAMESCOPE], CppNameScopeWithChildren))
-            nameScope:CppNameScopeWithChildren = adtConstant.m_extensions[CPP_NAMESCOPE]
+            assert(isinstance(adtConstant.m_extensions[CPP_NAMESCOPE], CppChildrenContainer))
+            nameScope:CppChildrenContainer = adtConstant.m_extensions[CPP_NAMESCOPE]
         elif self.m_defaultNameScope is not None:
-            nameScope:CppNameScopeWithChildren = self.m_defaultNameScope
+            nameScope = self.m_defaultNameScope
         else:
             logError(f"No namescope defined for constant {adtConstant.m_constantName}")
             return
@@ -207,7 +213,7 @@ class CppFromAdt:
         if CPP_NAME in adtConstant.m_extensions:
             cppConstantName:str = adtConstant.m_extensions[CPP_NAME]
         else:
-            cppConstantName:str = adtConstant.m_constantName
+            cppConstantName = adtConstant.m_constantName
 
         cppConstant:CppConstant = CppConstant(
             constantName=cppConstantName,
@@ -224,7 +230,7 @@ class CppFromAdt:
 
 
     #=======================================================================================================
-    def __resolveInheritance(self, adtClass:AdtClass):
+    def __resolveInheritance(self, adtClass:AdtClass) -> None:
         if adtClass.m_baseClass is None: return
         if adtClass.m_baseClass.m_className not in self.m_classMap:
             logError(f"ADT class {adtClass.m_className} derives from unexisting class {adtClass.m_baseClass.m_className}")
@@ -235,11 +241,11 @@ class CppFromAdt:
         thisCppClass.m_baseClass = baseCppClass
 
     #=======================================================================================================
-    def __callCustomCodeOnClass(self, adtClass:AdtClass):
+    def __callCustomCodeOnClass(self, adtClass:AdtClass) -> None:
         assert(adtClass.m_className in self.m_classMap)
         cppClass:CppClass = self.m_classMap[adtClass.m_className]
-        if CPP_CUSTOM_CODE in adtClass.m_extensions:
-            customCode = adtClass.m_extensions[CPP_CUSTOM_CODE]
+        if CPP_CUSTOM_PROCESSING in adtClass.m_extensions:
+            customCode = adtClass.m_extensions[CPP_CUSTOM_PROCESSING]
             if isinstance(customCode, CppAdtClassCustom):
                 customCode.customAction(adtClass=adtClass, cppClass=cppClass)
             elif isinstance(customCode, list):
@@ -248,12 +254,12 @@ class CppFromAdt:
                     customAction.customAction(adtClass=adtClass, cppClass=cppClass)
         
     #=======================================================================================================
-    def __generateField(self, adtField:AdtField, cppClass:CppClass):
+    def __generateField(self, adtField:AdtField, cppClass:CppClass) -> None:
         if CPP_NAME in adtField.m_extensions:
             assert(isinstance(adtField.m_extensions[CPP_NAME], str))
             cppFieldName:str = adtField.m_extensions[CPP_NAME]
         else:
-            cppFieldName:str = adtField.m_fieldName
+            cppFieldName = adtField.m_fieldName
 
         # First, privilege an explicit CPP_FIELD_DEFAULT value
         extensionDefinedDefault:CppRValueAny = adtField.m_extensions.getValueOrNone(CPP_FIELD_DEFAULT)
@@ -283,7 +289,7 @@ class CppFromAdt:
             self.m_fieldPostProcessor(cppField)
 
     #=======================================================================================================
-    def __getCppType2(self, adtType:AdtType, isArrayElement:bool=False, adtDefault:Optional[str]=None, isConstexpr:bool=False)->CppType:
+    def __getCppType2(self, adtType:AdtType, isArrayElement:bool=False, adtDefault:Optional[str]=None, isConstexpr:bool=False) -> CppType:
         if CPP_TYPE in adtType.m_extensions:
             assert(adtDefault is None)
             assert(isinstance(adtType.m_extensions[CPP_TYPE], CppType))
@@ -307,7 +313,7 @@ class CppFromAdt:
             return cppTypeBinary
 
         if isinstance(adtType, AdtTypeBool):
-            cppTypeSimple:CppTypeSimple = CppTypeSimple(simpleType='bool')
+            cppTypeSimple = CppTypeSimple(simpleType='bool')
             if adtDefault is not None:
                 if adtDefault.lower() == 'true':
                     cppTypeSimple.m_defaultValue = 'true'
@@ -315,6 +321,10 @@ class CppFromAdt:
                     cppTypeSimple.m_defaultValue = 'false'
                 else:
                     logError(f"Invalid boolean '{adtDefault}'")
+            return cppTypeSimple
+
+        if isinstance(adtType, AdtTypeFloat):
+            cppTypeSimple = CppTypeSimple(simpleType='double')
             return cppTypeSimple
 
         elif isinstance(adtType, AdtTypeClass):
@@ -349,7 +359,7 @@ class CppFromAdt:
             return CppTypeSimple(simpleType="void")
 
     #=======================================================================================================
-    def __getCppType(self, adtType:AdtType, isArrayElement:bool=False, adtDefault:Optional[str]=None, isConstexpr:bool=False)->CppType:
+    def __getCppType(self, adtType:AdtType, isArrayElement:bool=False, adtDefault:Optional[str]=None, isConstexpr:bool=False) -> CppType:
         cppType:CppType = self.__getCppType2(adtType=adtType, isArrayElement=isArrayElement, adtDefault=adtDefault, isConstexpr=isConstexpr)
         cppType.m_extensions.merge(adtType.m_extensions)
 
@@ -357,14 +367,14 @@ class CppFromAdt:
         if includes is not None:
             cppType.m_includes.merge(CppIncludes(includes))
         
-        if CPP_CUSTOM_CODE in adtType.m_extensions:
-            assert(isinstance(adtType.m_extensions[CPP_CUSTOM_CODE], CppAdtTypeCustom))
-            adtType.m_extensions[CPP_CUSTOM_CODE].customAction(adtType=adtType, cppType=cppType)
+        if CPP_CUSTOM_PROCESSING in adtType.m_extensions:
+            assert(isinstance(adtType.m_extensions[CPP_CUSTOM_PROCESSING], CppAdtTypeCustom))
+            adtType.m_extensions[CPP_CUSTOM_PROCESSING].customAction(adtType=adtType, cppType=cppType)
 
         return cppType
 
     #=======================================================================================================
-    def __mergeIncludes(self, targetIncludes:CppIncludes, extensions:Extensions):
+    def __mergeIncludes(self, targetIncludes:CppIncludes, extensions:Extensions) -> None:
         ''' 
         See if `extensions` contains the `CPP_INCLUDES` key referring to a CppIncludesAny
         If so, it will merge the includes in the `extensions` into `targetIncludes`

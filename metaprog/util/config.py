@@ -29,32 +29,32 @@ class Config:
     def __init__(self, commentFormat:CommentFormat) -> None:
         self.m_commentFormat:CommentFormat = commentFormat
         
-        self.m_env:dict[str,str] = dict()
+        self.m_env:dict[str,Union[str,object]] = dict()
         '''! 
             This map is available to the callers to pass informatio to the writers 
             It can be pushed and popped using `pushEnv()` or `popEnv()`
         '''
 
-        self.m_envStack:list[dict[str,str]] = list()
+        self.m_envStack:list[dict[str,Union[str,object]]] = list()
         '''! Environment stack '''
     
-    def pushEnv(self)->None:
+    def pushEnv(self) -> None:
         self.m_envStack.append(self.m_env)
         self.m_env = self.m_env.copy()
 
-    def popEnv(self)->None:
+    def popEnv(self) -> None:
         assert(len(self.m_env) > 0)
         self.m_env = self.m_envStack[-1]
         del self.m_envStack[-1]
 
-    def setEnv(self, key:str, value:Union[str,None]):
+    def setEnv(self, key:str, value:Union[str,object,None]) -> None:
         if value is None:
             if key in self.m_env:
                 del self.m_env[key]
         else:
             self.m_env[key] = value
 
-    def addEnv(self, addition:dict[str,str]):
+    def addEnv(self, addition:dict[str,Union[str,object]]) -> None:
          for key in addition.keys():
               self.m_env[key] = addition[key]
 
@@ -72,5 +72,9 @@ class Config:
             if word not in self.m_env:
                  logError(f"Failed replacing unknown word $({word})")
             else:
-                word = self.resolveEnvVars(self.m_env[word])
+                value: Union[str,object] = self.m_env[word]
+                if isinstance(value, str):
+                    word = self.resolveEnvVars(value)
+                else:
+                    logError(f"Failed replacing word $({word}): it is an object of type {value.__class__.__name__}, not a string")
             return word

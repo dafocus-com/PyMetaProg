@@ -19,7 +19,7 @@ from .writer import Writer
 from .writable import Writable
 from .config import Config
 from typing import Optional, Union, TypeAlias
-from .comment_entry import *
+from .comment_entry import CommentEntry, COMMENT_BRIEF
 
 CommentAny:TypeAlias = Union[None,str,CommentEntry,list[CommentEntry],"Comment"]
 
@@ -48,7 +48,7 @@ class Comment(Writable):
         '''
         self.m_entries.append(CommentEntry(command=command, parameter=None, description=description))
 
-    def write(self, writer:Writer, config:Config):
+    def write(self, writer:Writer, config:Config) -> None:
         '''! Write a comment using the indicated format '''
         config.m_commentFormat.writeComment(entries=self.m_entries, writer=writer, config=config) # type: ignore
 

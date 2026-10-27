@@ -21,6 +21,9 @@ from .cpp_includes import CppIncludesAny
 from metaprog.util.extensions import ExtensionsAny
 from typing import Optional
 from abc import abstractmethod
+from typing import TYPE_CHECKING 
+if TYPE_CHECKING: 
+    from .cpp_class_element import CppClassElement
 
 class CppClassBase(CppNameScopeWithChildren):
     '''! Objects that have a name scope like namespaces and classes '''
@@ -47,6 +50,6 @@ class CppClassBase(CppNameScopeWithChildren):
         return self.m_baseClass.getCppQualifiedName(otherScope=otherScope)
         
     @abstractmethod
-    def addClassElement(self, classElement:"CppClassElement")->"CppClassElement": # pyright: ignore[reportUndefinedVariable, reportUnknownParameterType, reportMissingParameterType]
+    def addClassElement(self, classElement:CppClassElement)->CppClassElement:
         ...
         

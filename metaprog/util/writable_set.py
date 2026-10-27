@@ -18,10 +18,10 @@ from __future__ import annotations
 from .writer import Writer
 from .config import Config
 from .writable import Writable
-from typing import Union, TypeAlias
+from typing import Union, TypeAlias, Any
 
 WritableSetValid:TypeAlias = Union[str,Writable]
-WritableSetAny:TypeAlias = Union[WritableSetValid,None]
+WritableSetValidOrInvalid:TypeAlias = Union[WritableSetValid,None]
 
 class WritableSet(Writable):
     '''! Implements a mixed list of `str` and `Writable`.
@@ -34,36 +34,36 @@ class WritableSet(Writable):
                 dedent:bool=True,           # Automatically dedent text
                 armonizeIndent:bool=True,   # Replace the editor indent with the generated code indent characters
                 autoReturnAtEnd:bool=True,  # Always terminate the string with newline
-            ):
+            ) -> None:
             self.m_text:WritableSetValid = text
             self.m_dedent:bool = dedent
             self.m_armonizeIndent:bool = armonizeIndent
             self.m_autoReturnAtEnd:bool = autoReturnAtEnd
     
     class Indent:
-        def __init__(self, indentSteps:int):
+        def __init__(self, indentSteps:int) -> None:
             self.m_indentSteps:int = indentSteps
 
     class PushEnv:
-        def __init__(self, env:dict[str,str]):
-            self.m_env:dict[str,str] = env
+        def __init__(self, env:dict[str,Union[str,object]]) -> None:
+            self.m_env:dict[str,Union[str,object]] = env
 
     class PopEnv:
         pass
 
 
     #==============================================================================================
-    def __init__(self, text:WritableSetAny=None, dedent:bool=True, armonizeIndent:bool=True, autoReturnAtEnd:bool=True):
+    def __init__(self, text:WritableSetValidOrInvalid|WritableSet=None, dedent:bool=True, armonizeIndent:bool=True, autoReturnAtEnd:bool=True) -> None:
         self.m_blocks:list[WritableSet.Block|WritableSet.Indent|WritableSet.PushEnv|WritableSet.PopEnv] = list()
         if text is not None:
             self.append(text=text, dedent=dedent, armonizeIndent=armonizeIndent, autoReturnAtEnd=autoReturnAtEnd)
 
     #==============================================================================================
-    def empty(self)->bool:
+    def empty(self) -> bool:
         return len(self.m_blocks)==0
 
     #==============================================================================================
-    def append(self, text:WritableSetAny|WritableSet, dedent:bool=True, armonizeIndent:bool=True, autoReturnAtEnd:bool=True):
+    def append(self, text:WritableSetValidOrInvalid|WritableSet, dedent:bool=True, armonizeIndent:bool=True, autoReturnAtEnd:bool=True) -> None:
         if text is None: return
         if isinstance(text, WritableSet):
             for block in text.m_blocks:
@@ -74,26 +74,27 @@ class WritableSet(Writable):
             ))
 
     #==============================================================================================
-    def pushEnv(self, env:dict[str,str]):
+    def pushEnv(self, env:dict[str,Union[str,object]]) -> None:
         '''! Add some environment variables '''
         self.m_blocks.append(WritableSet.PushEnv(env=env))
 
     #==============================================================================================
-    def popEnv(self):
+    def popEnv(self) -> None:
         '''! Go back to previous environment '''
         self.m_blocks.append(WritableSet.PopEnv())
 
     #==============================================================================================
-    def incIndent(self, indentSteps:int=1):
+    def incIndent(self, indentSteps:int=1) -> None:
         '''! Increase the indent level '''
         self.m_blocks.append(WritableSet.Indent(indentSteps=indentSteps))
 
     #==============================================================================================
-    def decIndent(self, indentSteps:int=1):
+    def decIndent(self, indentSteps:int=1) -> None:
         '''! Derease the indent level '''
         self.incIndent(indentSteps=-indentSteps)
 
-    def write(self, writer:Writer, config:Config):
+    #==============================================================================================
+    def write(self, writer:Writer, config:Config) -> None:
         for block in self.m_blocks:
             if isinstance(block, WritableSet.Block):
                 if isinstance(block.m_text, Writable):
@@ -109,3 +110,9 @@ class WritableSet(Writable):
                    config.popEnv()
             else:
                 writer.incIndent(indentSteps=block.m_indentSteps)
+
+
+WritableSetAny:TypeAlias = Union[WritableSetValidOrInvalid,WritableSet]
+
+def assertIsWritableSetAny(obj:Any) -> None:
+    assert(obj is None or isinstance(obj,(WritableSet|Writable|str)))

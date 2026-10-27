@@ -46,6 +46,11 @@ class AdtTypeBool(AdtType):
     def __init__(self, extensions:ExtensionsAny=None):
         super().__init__(extensions=extensions)
 
+class AdtTypeFloat(AdtType):
+    ''' Type descriptor for floating point values '''
+    def __init__(self, extensions:ExtensionsAny=None):
+        super().__init__(extensions=extensions)
+
 class AdtTypeBinary(AdtType):
     ''' Type descriptor for binary data '''
     def __init__(self, extensions:ExtensionsAny=None):

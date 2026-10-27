@@ -22,9 +22,9 @@ from .cpp_config import CppConfig
 from .cpp_module_config import CppModuleConfig
 from .cpp_rvalue import CppRValue
 from metaprog.util.writer import Writer
-from metaprog.util.extensions import *
-from metaprog.util.comment import *
-from metaprog.util.log import *
+from metaprog.util.extensions import ExtensionsAny
+from metaprog.util.comment import Comment, CommentAny
+from typing import Optional
 
 class CppConstant(CppNameScope, CppRValue):
     def __init__(
@@ -40,13 +40,13 @@ class CppConstant(CppNameScope, CppRValue):
         self.m_constantType:CppType = CppTypeFactory(constantType)
         self.m_comment:Comment = Comment(commentAny=brief)
 
-    def setupModuleConfig(self, moduleConfig:CppModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CppModuleConfig) -> None:
         super().setupModuleConfig(moduleConfig=moduleConfig)
 
-    def generateHppBody(self, writer:Writer, config:CppConfig)->None:
+    def generateHppBody(self, writer:Writer, config:CppConfig) -> None:
         self.m_comment.write(writer, config)
         writer.writeNL(f"constexpr {self.m_constantType.toString(containerClass=self)} {self.getCppUnqualifiedName()} = {self.m_constantType.getAssigneableDefaultValue(self)};")
 
-    def generateValue(self, writer:Writer, config:CppConfig, otherScope:Optional[CppNameScope]=None)->None:
+    def generateValue(self, writer:Writer, config:CppConfig, otherScope:Optional[CppNameScope]=None) -> None:
         '''! Generate the R-value text '''
         writer.writeRaw(self.getCppQualifiedName(otherScope=otherScope))

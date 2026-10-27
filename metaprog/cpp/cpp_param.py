@@ -17,10 +17,12 @@
 from .cpp_includes import CppIncludes, CppIncludesAny
 from .cpp_module_config import CppModuleConfig
 from .cpp_config import CppConfig
-from .cpp_type import *
+from .cpp_type import CppType, CppTypeFactory, CppTypeAny
 from .cpp_class_element import CppClassElement
 from typing import Optional
-from metaprog.util.comment import *
+from metaprog.util.comment import Comment, CommentAny
+from metaprog.util.comment_entry import COMMENT_PARAM
+from metaprog.util.writer import Writer
 
 class CppParam:
     '''! CppMethod parameter '''
@@ -44,7 +46,7 @@ class CppParam:
         self.m_mayBeUnused:bool = mayBeUnused
         self.m_owningMehod:Optional[CppClassElement] = None
 
-    def addToComment(self, comment:Comment)->None:
+    def addToComment(self, comment:Comment) -> None:
         comment.merge(other=self.m_paramComment)
 
     def writeDecl(self, writer:Writer, config:CppConfig, withDefault:bool) -> None:
@@ -59,7 +61,7 @@ class CppParam:
         self.m_paramType.declVar(writer=writer, config=config, var=self.m_paramName, containerClass=self.m_owningMehod.getCppClass())
         writer.writeRaw(f'{defaultCode}')
 
-    def setupModuleConfig(self, moduleConfig:CppModuleConfig)->None:
+    def setupModuleConfig(self, moduleConfig:CppModuleConfig) -> None:
         '''! Operate on the accessible parts of the module to add includes, header parts and so on '''
         moduleConfig.m_hppIncludes.merge(self.m_hppIncludes)
         moduleConfig.m_cppIncludes.merge(self.m_cppIncludes)

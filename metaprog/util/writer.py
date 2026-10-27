@@ -37,7 +37,7 @@ class Writer(ABC):
 
     '''
     #==============================================================================================
-    def __init__(self):
+    def __init__(self) -> None:
         ## The string used to create one indent level
         self.m_indentString: str = "\t"
         
@@ -56,7 +56,7 @@ class Writer(ABC):
 
     #==============================================================================================
     @abstractmethod
-    def _internalWrite(self, text:str):
+    def _internalWrite(self, text:str) -> None:
         '''! REDEFINE THIS METHOD TO PRINT ON THE ACTUAL STREAM 
 
         Writes without adding a newline at the end of the string
@@ -64,19 +64,19 @@ class Writer(ABC):
         ...
 
     #==============================================================================================
-    def incIndent(self, indentSteps:int=1):
+    def incIndent(self, indentSteps:int=1) -> None:
         '''! Increase the indent level '''
         self.m_indentLevel += indentSteps
         assert(self.m_indentLevel >= 0)
 
     #==============================================================================================
-    def decIndent(self, indentSteps:int=1):
+    def decIndent(self, indentSteps:int=1) -> None:
         '''! Derease the indent level '''
         self.m_indentLevel -= indentSteps
         assert(self.m_indentLevel >= 0)
 
     #==============================================================================================
-    def armonizeIndentOnLine(self, line:str)->str:
+    def armonizeIndentOnLine(self, line:str) -> str:
         '''! Given one line, replaces all the leading `editorIndentText` sequences with `indentString` '''
         srchLen:int = len(self.m_editorIndentText)
         indents:int = 0
@@ -86,7 +86,7 @@ class Writer(ABC):
         return (self.m_indentString * indents) + line
 
     #==============================================================================================
-    def write(self, text:str, dedent:bool=True, armonizeIndent:bool=True, autoReturnAtEnd:bool=False):
+    def write(self, text:str, dedent:bool=True, armonizeIndent:bool=True, autoReturnAtEnd:bool=False) -> None:
         '''! Print the text using the current indent level 
         @param text            The text to be printed
         @param dedent          Automatically dedent text like `textwrap.dedent` does.
@@ -127,7 +127,7 @@ class Writer(ABC):
                 self._internalWrite("\n")
                 
     #==============================================================================================
-    def writeNL(self, text:str, dedent:bool=True, armonizeIndent:bool=True):
+    def writeNL(self, text:str, dedent:bool=True, armonizeIndent:bool=True) -> None:
         '''! Print the text using the current indent level; adds a '\n' at the end if not already present 
         @param text            The text to be printed
         @param dedent          Automatically dedent text like `textwrap.dedent` does.
@@ -136,6 +136,6 @@ class Writer(ABC):
         self.write(text=text, dedent=dedent, armonizeIndent=armonizeIndent, autoReturnAtEnd=True)
 
     #==============================================================================================
-    def writeRaw(self, text:str):
+    def writeRaw(self, text:str) -> None:
         '''! Write without any manipulation of the text '''
         self.write(text=text, dedent=False, armonizeIndent=False)

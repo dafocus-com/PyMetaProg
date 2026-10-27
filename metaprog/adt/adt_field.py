@@ -16,7 +16,7 @@
 
 from .adt_type import AdtType
 from metaprog.util.extensions import Extensions, ExtensionsAny
-from metaprog.util.comment import *
+from metaprog.util.comment import CommentAny
 from .adt_constant import AdtConstant
 from typing import Optional
 

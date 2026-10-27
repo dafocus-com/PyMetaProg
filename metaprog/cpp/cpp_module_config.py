@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 from pathlib import Path
-from metaprog.util.comment import *
+from metaprog.util.comment import Comment, CommentAny
 from metaprog.util.freetext import FreeText
 from .cpp_includes import CppIncludes
 from .cpp_config import CppConfig
@@ -41,10 +41,10 @@ class CppModuleConfig:
 
         self.m_config:CppConfig = config
 
-    def includeModuleInCpp(self, otherModule:CppModuleConfig):
+    def includeModuleInCpp(self, otherModule:CppModuleConfig) -> None:
         '''! Add the include related to `otherModule` to this module .cpp file '''
         self.m_cppIncludes.addRelativeToOtherFile(otherModule.m_hppFilePath, self.m_cppFilePath)
 
-    def includeModuleInHpp(self, otherModule:CppModuleConfig):
+    def includeModuleInHpp(self, otherModule:CppModuleConfig) -> None:
         '''! Add the include related to `otherModule` to this module .hpp file '''
         self.m_hppIncludes.addRelativeToOtherFile(otherModule.m_hppFilePath, self.m_hppFilePath)

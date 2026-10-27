@@ -4,6 +4,6 @@ PyMetaProg is a Python library that aids developing Python code whose output is 
 
 ## Index:
 
-* [Code generation concepts](docs/WhyCodeGen.md) - Learn the basic concepts
+* [Code generation concepts](docs/CodeGenerationConcepts.md) - Learn the basic concepts
 
 

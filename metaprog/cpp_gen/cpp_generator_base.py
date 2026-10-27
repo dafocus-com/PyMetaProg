@@ -18,6 +18,7 @@ from metaprog.cpp.cpp_class import CppClass
 from metaprog.cpp.cpp_enum import CppEnum
 from abc import ABC, abstractmethod
 
+
 class CppGeneratorBase(ABC):
     #=============================================================================================
     def __init__(

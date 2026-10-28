@@ -131,3 +131,53 @@ pyGeneratorSet.decorateClasses()
 # Run the generation of the target files
 pyPackage.generate(config=pyConfig, pyFilePath=pythonTargetDir)
 ```
+
+## Generate C++
+
+```py
+# Define the C++ configuration object that defines common features.
+# In this case, it uses all the defaults.
+cppConfig:CppConfig = CppConfig()
+
+# Create a module, i.e. a .cpp/.hpp pair. The `.cpp` has to be listed, but it will
+# be produced only if any of the internal generation classes require it.
+cppModuleConfig:CppModule = CppModule(
+    hppFilePath='myfile.hpp',
+    cppFilePath='myfile.cpp',
+    config=cppConfig,
+)
+
+# Optionally, create the some namespaces. This is required if the generated code
+# is to be placed inside a C++ namespace
+configNamespace:CppNamespace = CppNamespace(namespaceName="config")
+cppModuleConfig.addChild(configNamespace)
+
+def processCppField(cppField:CppField):
+    if not CPP_NAME in cppField.m_extensions:
+        cppField.m_fieldName = f'm_{cppField.m_fieldName}'
+
+# Fill the modules with the `config` classes
+cppFromAdtConfig:CppFromAdt = CppFromAdt(defaultNameScope=configNamespace, fieldPostProcessor=processCppField)
+cppConfigClasses:list[CppClass] = cppFromAdtConfig.generate(adtClassSet=adtClassSet)
+
+# Create a generator set adding the desired generators
+cppGeneratorSet:CppGeneratorSet = CppGeneratorSet()
+cppGeneratorSet.addGenerator(CppRttiGenerator())
+cppGeneratorSet.addGenerator(CppClearGenerator())
+cppGeneratorSet.addGenerator(CppCopyGenerator())
+cppGeneratorSet.addGenerator(CppPrintGenerator())
+cppGeneratorSet.addGenerator(CppMarshalGenerator())
+cppGeneratorSet.addGenerator(CppMarshalFastJsonGenerator())
+
+# Add the C++ classes to the generator set
+cppGeneratorSet.addClasses(cppClasses=cppConfigClasses)
+
+# Order the generator set to "decorate" the classes. This action will have
+# the generators registered in the generators set to inspect them and add
+# their methods and attributes.
+cppGeneratorSet.decorateClasses()
+
+# Finally, the actual .cpp/.hpp files can be generated
+cppModuleConfig.generate()
+
+```

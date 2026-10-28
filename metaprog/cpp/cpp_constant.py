@@ -30,7 +30,7 @@ class CppConstant(CppNameScope, CppRValue):
     def __init__(
             self, 
             constantName:str,
-            constantType:CppTypeAny=CppTypeSimple(simpleType="uint32_t"),
+            constantType:CppTypeAny=CppTypeSimple(simpleType="uint32_t", includes='cstdint'),
             hppIncludes:CppIncludesAny=None,
             cppIncludes:CppIncludesAny=None,
             extensions:ExtensionsAny=None,

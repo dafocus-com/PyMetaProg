@@ -17,6 +17,7 @@
 from pathlib import Path
 from metaprog.util.writer import Writer
 from .cpp_config import CppConfig
+from .cpp_namescope import CppNameScope
 from metaprog.util.sourcefile import SourceFile
 from metaprog.util.writable_brige import WritableBridge
 from metaprog.util.writable_set import WritableSet

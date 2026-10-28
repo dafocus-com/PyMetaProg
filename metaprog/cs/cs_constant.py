@@ -31,7 +31,7 @@ class CsConstant(CsNameScope, CsRValue):
     def __init__(
             self, 
             constantName:str,
-            constantType:CsTypeAny=CsTypeSimple(simpleType="uint32_t"),
+            constantType:CsTypeAny=CsTypeSimple(simpleType="uint"),
             csIncludes:CsIncludesAny=None,
             extensions:ExtensionsAny=None,
             brief:CommentAny=None,

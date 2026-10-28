@@ -355,7 +355,7 @@ class CppFromAdt:
             return CppTypeMap(keyType=CppTypeString(), containedType=self.__getCppType(adtType=adtType.m_containedType))
 
         else:
-            logError(f"ADT type reference invalid")
+            logError(f"ADT type reference invalid: {adtType}")
             return CppTypeSimple(simpleType="void")
 
     #=======================================================================================================

@@ -240,7 +240,6 @@ class CppHashGenerator(CppGeneratorBase):
     #=============================================================================================
     def _hashCode(self, writableSet:WritableSet, fieldType:CppType, fieldExpr:str) -> None:
         if CPP_HASH_CODE in fieldType.m_extensions:
-            print(f"DEBUG FOUND fieldExpr={fieldExpr}")
             assertIsWritableSetAny(fieldType.m_extensions[CPP_HASH_CODE])
             writableSet.pushEnv(env={_CPP_HASH_OBJ:self.m_hashParam, _CPP_HASH_FIELD:fieldExpr})
             writableSet.append(fieldType.m_extensions[CPP_HASH_CODE])

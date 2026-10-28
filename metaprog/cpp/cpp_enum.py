@@ -30,7 +30,7 @@ class CppEnum(CppEnumBase):
             self, 
             enumClassName:str,
             enumEntries:list[CppEnumEntry] = list(),
-            enumType:CppTypeAny=CppTypeSimple(simpleType="uint32_t"),
+            enumType:CppTypeAny=CppTypeSimple(simpleType="uint32_t", includes='cstdint'),
             hppIncludes:CppIncludesAny=None,
             cppIncludes:CppIncludesAny=None,
             extensions:ExtensionsAny=None,
